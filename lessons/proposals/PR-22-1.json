@@ -6,6 +6,8 @@
   "evidence": "[LOOP] Worker-O run 141696e1: 7x bash; Caused by: org.junit.platform.commons.PreconditionViolationException: Could not load class with name: com.qntrl.circuit.util.ParserUtilTest (4 errors)",
   "issue": "CIRD-22",
   "id": "PR-22-1",
-  "status": "proposed",
-  "created": "2026-10-28 18:14:51"
+  "status": "applied",
+  "created": "2026-10-28 18:14:51",
+  "lesson": "W-002",
+  "approved_by_comment": "01a18291-91ca-7ef7-a235-424903baa8fa"
 }

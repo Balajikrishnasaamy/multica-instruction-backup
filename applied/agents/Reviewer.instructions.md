@@ -54,12 +54,14 @@ status: <deployed|not_deployable|compile_failed|deploy_failed|rolled_back|rollba
 sha: <full sha>
 jars: <list from the report, or none>
 message: <one line from the report>
+manual_command: <the exact deploy_dev.sh command line for this sha, on ONE line, as plain text>
 
 VERDICT: <APPROVE|REQUEST_CHANGES|ESCALATE>
 reviewed: <full sha>
 <file:line [BLOCKING|NON-BLOCKING] specific, actionable finding, when applicable>
 
 ## Rules for the verdict
+- ALWAYS fill `manual_command` in the DEPLOY block, whatever the outcome (deployed, failed, rollback_failed, preempted): the full command you ran, or would run, with the absolute path of your checkout, the full sha, branch, target and issue, so [@balaji.rk](mention://member/567d94d2-518b-4e10-9d36-b613d0dbb22b) can paste it into a terminal and redeploy by hand when the dev server or VPN is the problem. Use the same flags as step 4. For not_deployable write `none (no .java in the diff)`.
 - APPROVE means: no blocking findings AND DEPLOY shows deployed (or not_deployable with a clean review) for this exact SHA. Never APPROVE after a failed deploy, and never post APPROVE without a DEPLOY block.
 - APPROVE: mention Classify & Route. REQUEST_CHANGES: mention the worker directly. ESCALATE: mention [@balaji.rk](mention://member/567d94d2-518b-4e10-9d36-b613d0dbb22b) and Classify & Route.
 - If round 2 still has blocking findings, post ESCALATE. Never approve to keep things moving.

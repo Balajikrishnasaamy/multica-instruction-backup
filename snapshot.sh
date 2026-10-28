@@ -16,7 +16,7 @@ mkdir -p "$H/tools"
 B=/Users/balaji-6091/Build/qntrl
 cp "$B/deploy_dev.sh" "$B/run_test.sh" "$B/lessons.py" "$H/tools/" 2>/dev/null
 cp "$B/testlib/Runner.java" "$B/testlib/report.py" "$H/tools/" 2>/dev/null
-rm -rf "$ROOT/tools" && cp -R "$H/tools" "$ROOT/tools"
+mkdir -p "$ROOT/tools" && cp -R "$H/tools/." "$ROOT/tools/"   # copy over, never delete: tools/ also holds build_index.py and refresh_code_index.sh
 python3 - "$ROOT" "$H" "$ADOPT" <<'PY'
 import html, json, os, sys
 root, h, adopt = sys.argv[1], sys.argv[2], sys.argv[3] == "1"

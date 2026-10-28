@@ -1,1 +1,2 @@
 2026-10-28 18:14:51	propose	PR-22-1	ADD to section 'worker':   rule: When JUnit reports 'Could not load class with name', verify the selected test's compiled class and runtime classpath before rerunning; report discovery failure separat
+2026-10-28 18:22:36	add	W-002	PR-22-1 approved in comment 01a18291-91ca-7ef7-a235-424903baa8fa

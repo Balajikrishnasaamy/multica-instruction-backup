@@ -38,6 +38,7 @@ KEEP_BACKUPS=5
 export JAVA_HOME=/opt/homebrew/opt/openjdk@17
 export PATH=$JAVA_HOME/bin:$PATH
 
+DEV_URL=${DEV_URL:-https://balaji-6091.csez.zohocorpin.com:8443}
 REPO=""; SRC=""; SHA=""; BRANCH=""; TARGET=""; ISSUE=""; RESTART=1; DRY=0; TIMEOUT=450; MODE=deploy; RB_ID=""
 
 die() { echo "ERROR: $*" >&2; exit "${2:-2}"; }
@@ -106,16 +107,16 @@ start_server() { # returns 0 when healthy
 			log "service FAILED during startup:"; grep "\[ FAILED \]" "$SERVER_LOG" | head -5
 			log "last log lines:"; tail -15 "$SERVER_LOG"; return 1
 		fi
-		if grep -q "Server startup in" "$SERVER_LOG" 2>/dev/null; then
+		if grep -qE "Server startup in|Server started in ::" "$SERVER_LOG" 2>/dev/null; then
 			sleep 5
 			if grep -q "\[ FAILED \]" "$SERVER_LOG"; then grep "\[ FAILED \]" "$SERVER_LOG" | head -5; return 1; fi
-			local code; code=$(curl -sk -o /dev/null -w '%{http_code}' --max-time 10 https://localhost:8443/ || true)
-			log "server up after ${waited}s, https://localhost:8443/ -> $code"
+			local code; code=$(curl -sk -o /dev/null -w '%{http_code}' --max-time 10 "$DEV_URL/" || true)
+			log "server up after ${waited}s, $DEV_URL/ -> $code"
 			[ "$code" != "000" ] && return 0 || return 1
 		fi
 		sleep 5; waited=$((waited + 5))
 	done
-	log "no 'Server startup in' within ${TIMEOUT}s"; tail -15 "$SERVER_LOG"; return 1
+	log "no 'Server startup in' / 'Server started in ::' within ${TIMEOUT}s"; tail -15 "$SERVER_LOG"; return 1
 }
 
 restore_backup() { # backup dir

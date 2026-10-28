@@ -20,7 +20,7 @@ All agents work in their own task workdirs. Nobody uses ~/Cursor, ~/IdeaProjects
 4. Classify & Route checks that the approval names the sha of the latest HANDOFF and that DEPLOY for that sha is deployed. It sets the issue in_review and asks @balaji.rk to test on dev and reply TEST-OK.
    - TEST-OK: Classify & Route authorizes Worker-1 to open the MR for that exact SHA.
    - Test failure or change request: Classify & Route posts a new ROUTING (test_cycle + 1) and mentions Worker-1.
-5. Worker-1 confirms the branch tip equals the authorized SHA, pushes it to the MR branch agent/worker-1/<issue-id> with the GitLab MR push options, and posts the MR link. Classify & Route verifies the link and sets the issue in_pr_review.
+5. Worker-1 confirms the branch tip equals the authorized SHA, pushes it to the MR branch agent/worker-1/<issue-id> with a plain push, and posts MR_READY with the create link, target and title. @balaji.rk opens the MR by hand from that link, sets its target to the fixed branch below, and posts the /merge_requests/ URL. Classify & Route verifies that URL and sets the issue in_pr_review.
 
 Any commit after approval invalidates the approval, the deploy and the TEST-OK. Worker-1 must post a new HANDOFF, Reviewer must review and deploy the new commit, and @balaji.rk must test it again. TEST-OK applies only to the SHA that was deployed and tested.
 
@@ -71,7 +71,7 @@ A HANDOFF requires a committed and pushed change. For circuit it also requires a
 
 ## Shared rules
 - Git only; never use the browser to create an MR. Do not make empty commits. Never amend or force-push after a HANDOFF; add commits.
-- The review branch is pushed with a plain push. The MR is created later by pushing the approved SHA to a new branch name with the MR push options (push options are ignored when no ref changes).
+- The review branch is pushed with a plain push. The MR branch is pushed later, plainly, from the approved SHA to a new branch name; no push options (this server rejects them). The MR itself is opened by @balaji.rk by hand.
 - Follow the repo's AGENTS.md. Never directly edit source/entity/; change the data dictionary instead. Use parser/, never paser/.
 - Never run mvn, gradle, ant or the full build. Tests run only with /Users/balaji-6091/Build/qntrl/run_test.sh, only for repo circuit; every run writes an HTML report (attach it to the comment).
 - Before changing, or requesting changes to, code outside the diff, confirm that the affected call path reaches it.
