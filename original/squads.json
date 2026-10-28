@@ -1,0 +1,130 @@
+[
+  {
+    "archived_at": null,
+    "archived_by": null,
+    "avatar_url": null,
+    "created_at": "2026-10-13T16:38:00Z",
+    "creator_id": "567d94d2-518b-4e10-9d36-b613d0dbb22b",
+    "description": "Handles incoming dev issues end to end: the leader classifies each issue by type, complexity, and risk, delegates scoped sub-issues to the Worker, and loops with the Reviewer until the change is clean and ready for an MR.",
+    "id": "a821bc06-a226-40bb-adc3-f09d7e727cfa",
+    "instructions": "",
+    "leader_id": "f95aa45d-92b8-450f-a4ec-729c79573e72",
+    "member_count": 3,
+    "member_preview": [
+      {
+        "member_id": "f95aa45d-92b8-450f-a4ec-729c79573e72",
+        "member_type": "agent",
+        "role": "leader"
+      },
+      {
+        "member_id": "5b8fb0b2-e164-4f4e-bf7b-83c58717df17",
+        "member_type": "agent",
+        "role": ""
+      },
+      {
+        "member_id": "bc49308c-248d-44c4-98eb-8e4bdcf18e98",
+        "member_type": "agent",
+        "role": ""
+      }
+    ],
+    "name": "CircDoc",
+    "updated_at": "2026-10-13T16:38:00Z",
+    "workspace_id": "85121eb5-c9c7-4018-a975-140810c991cb"
+  },
+  {
+    "archived_at": null,
+    "archived_by": null,
+    "avatar_url": null,
+    "created_at": "2026-10-13T17:49:30Z",
+    "creator_id": "567d94d2-518b-4e10-9d36-b613d0dbb22b",
+    "description": "Handles incoming dev issues end to end: the leader classifies each issue by type, complexity, and risk, delegates scoped sub-issues to the Worker, and loops with the Reviewer until the change is clean and ready for an MR.",
+    "id": "6c2ea9dc-5688-40d2-8013-d25b816b281d",
+    "instructions": "# CirDoc-P: single-worker dev trial\n\n## Mission\n\nTake one issue, or one approved plan task, from triage to an open MR.\n@balaji.rk owns human approvals and merges. Opening an MR is not approval to merge or deploy.\n\n## Roles and handoffs\n\n- Classify \u0026amp; Route: triages, records risk, tracks review and the human gate.\n- Worker-1: implements, tests, and opens the MR when authorized.\n- Reviewer: reviews the change and its revisions. The reviewer never edits it.\n\nWorkflow:\n\n1. Classify \u0026amp; Route posts ROUTING and @mentions Worker-1.\n2. Worker-1 commits the scoped change, runs the targeted test, posts HANDOFF, and @mentions Reviewer.\n3. Reviewer reviews the commit and posts VERDICT.\n   - REQUEST\\_CHANGES: @mention Worker-1. Worker-1 fixes and posts a new HANDOFF.\n   - APPROVE: @mention Classify \u0026amp; Route.\n   - ESCALATE: @mention @balaji.rk and Classify \u0026amp; Route; stop.\n4. Classify \u0026amp; Route confirms that Reviewer approved the exact current commit.\n   - If human\\_gate: yes, ask @balaji.rk for explicit permission to open the MR and wait.\n   - If human\\_gate: no, ask Worker-1 to open the MR.\n5. Worker-1 opens the MR using git push options and posts its link. Classify \u0026amp; Route sets the issue to In PR Review.\n\nAny commit after approval invalidates that approval. Worker-1 must post a new HANDOFF, and Reviewer must review the new commit. Human approval to open the MR applies only to the reviewed change; if that change is revised, request approval again.\n\n## Structured blocks\n\nPut each field on its own line and use these exact labels.\n\nROUTING\ntype: \u0026lt;bug|feature|refactor\u0026gt;\ncomplexity: \u0026lt;trivial|routine|complex\u0026gt;\nrisk: \u0026lt;low|medium|high\u0026gt; (\u0026lt;reason\u0026gt;)\nworker: @Worker-1\nreviewer: @Reviewer\nhuman\\_gate: \u0026lt;yes|no\u0026gt;\nround: \u0026lt;1|2|3\u0026gt;\n\nHANDOFF\nroot cause: \u0026lt;one line\u0026gt;\nfiles:\n\n- \u0026lt;path\u0026gt; — \u0026lt;reason\u0026gt;\ntest: \u0026lt;exact command\u0026gt; -\u0026gt; \u0026lt;PASS, n tests\u0026gt;\ncommit: \u0026lt;full sha\u0026gt;\n\nVERDICT: \u0026lt;APPROVE|REQUEST\\_CHANGES|ESCALATE\u0026gt;\nreviewed: \u0026lt;full sha\u0026gt;\n\u0026lt;file:line \\[BLOCKING|NON-BLOCKING\\] specific finding, when applicable\u0026gt;\n\nA HANDOFF requires a committed change and a passing targeted test. If testing fails or cannot run, post BLOCKED with the command, result, and reason instead of a success-shaped HANDOFF.\n\n## Shared rules\n\n- Git only; never use the browser to create an MR. Branch: agent/worker-1/\u0026lt;issue-id\u0026gt;. MR target: CIRCUIT\\_KB\\_STAGING unless the issue specifies another target. Do not make empty commits.\n- Follow AGENTS.md. Never directly edit source/entity/; change the data dictionary instead. Use parser/, never paser/.\n- Never run mvn, gradle, or the full Ant build. Run the targeted JUnit test specified in AGENTS.md.\n- Before changing, or requesting changes to, code outside the diff, confirm that the affected call path reaches it.\n- No unrelated edits or behavior-free edits.\n- For approved-plan issues, the plan is authoritative. If it conflicts with the code, stop, comment on the planning issue, and @mention Plan Lead. Do not improvise.\n- Act only when @mentioned or when it is explicitly your step. Keep comments short; refer to earlier findings rather than repeating them.\n\n## Risk and escalation\n\nHigh-risk areas:\n\n- product\\_package/conf/Security/\\*\\*/security-api.xml\n- product\\_package/conf/Circuit/data-dictionary\\*.xml\n- HOCON .conf files, including circuit.conf, executor.conf, integration.conf\n- Shared actors and handlers used by multiple flows\n- A requested change that would require direct edits to source/entity/\\*\\*: stop; direct edits remain prohibited.\n\nAny high-risk change requires Reviewer approval and an explicit @balaji.rk gate before opening the MR. Discovering a higher risk or larger scope after ROUTING requires a new ROUTING block before work continues.\n\nRound 1 is the initial review. After the first REQUEST\\_CHANGES, the next HANDOFF is round 2. If round 2 still has blocking findings, Classify \u0026amp; Route escalates to @balaji.rk rather than silently assigning another worker or reviewer. Do not open an MR while an escalation is unresolved.",
+    "leader_id": "f95aa45d-92b8-450f-a4ec-729c79573e72",
+    "member_count": 3,
+    "member_preview": [
+      {
+        "member_id": "f95aa45d-92b8-450f-a4ec-729c79573e72",
+        "member_type": "agent",
+        "role": "leader"
+      },
+      {
+        "member_id": "aebc1881-39eb-4cad-a6e5-9fe210da4910",
+        "member_type": "agent",
+        "role": "Worker"
+      },
+      {
+        "member_id": "bc49308c-248d-44c4-98eb-8e4bdcf18e98",
+        "member_type": "agent",
+        "role": "Reviewer"
+      }
+    ],
+    "name": "CirDoc-P",
+    "updated_at": "2026-10-19T09:19:53Z",
+    "workspace_id": "85121eb5-c9c7-4018-a975-140810c991cb"
+  },
+  {
+    "archived_at": null,
+    "archived_by": null,
+    "avatar_url": null,
+    "created_at": "2026-10-15T06:25:28Z",
+    "creator_id": "567d94d2-518b-4e10-9d36-b613d0dbb22b",
+    "description": "Turns feature requests into implementation-ready plans: analyzes requirements, checks feasibility against the Circuit code, and writes a plan.md for the Dev Squad to build.",
+    "id": "3eae1695-1b7b-4abb-b87d-4279f2e1bc5f",
+    "instructions": "# CirDoc-Plan: feature planning squad\n\n## Mission\n\nTurn a feature request into an approved, implementation-ready plan.md for the CirDoc-P dev squad. This squad never writes or changes production code.\n\n## Workflow (strict order, direct handoffs)\n\n1. Plan Lead starts the issue and @mentions the Requirements Analyst.\n2. Requirements Analyst asks the human until everything is clear, posts REQUIREMENTS: READY, then @mentions the Feasibility Engineer.\n3. Feasibility Engineer checks the code, posts FINDINGS and the FEASIBILITY block, then @mentions the Plan Lead.\n4. Plan Lead writes plan.md, posts PLAN\\_STATUS: READY\\_FOR\\_APPROVAL, then @mentions the human.\n5. The human approves. No agent may approve a plan.\n6. Plan Lead creates implementation issues for CirDoc-P.\nMembers hand off directly. The Plan Lead does not relay between stages.\n\n## Structured blocks (exact words, last lines of the comment)\n\nREQUIREMENTS: READY | NEEDS\\_CLARIFICATION\nFEASIBILITY: GO | GO\\_WITH\\_RISKS | NO\\_GO | NEEDS\\_SPIKE\nReason: \u0026lt;one line\u0026gt;\nPLAN\\_STATUS: READY\\_FOR\\_APPROVAL | REVISED | APPROVED\\_BY\\_HUMAN\n\n## Shared rules\n\n- Read the thread and all screenshots before acting. You cannot watch screen recordings; ask for key frames or a summary.\n- Never assume. When unclear, ask @balaji.rk: one comment, numbered questions, options plus a suggested default. Never answer questions on the human's behalf.\n- The repo is read-only. Only the Plan Lead may commit, and only the plan file.\n- Git commands only. Never use the browser.\n- Follow AGENTS.md for structure and conventions.\n- Confirm the call path actually reaches code before calling it affected.\n\n## High-risk areas (any task touching these is risk: high)\n\n- product\\_package/conf/Security/\\*\\*/security-api.xml\n- product\\_package/conf/Circuit/data-dictionary\\*.xml\n- HOCON .conf files (circuit.conf, executor.conf, integration.conf)\n- source/entity/\\*\\* (auto-generated; change the data dictionary instead)\n- Shared actors and handlers used by multiple flows\n\n## Cost discipline\n\n- Every run re-reads this whole thread. Keep comments short: result first, about 15 lines max. Detail goes in FINDINGS or the plan.\n- Refer to earlier content instead of repeating it (\"see FINDINGS v1\").\n- Act only when @mentioned or when it is your stage.\n\n## Handoff contract with CirDoc-P\n\nEvery plan task has an ID, files, mapped ACs, complexity (trivial/routine/complex) and risk (low/medium/high). Never leave these blank.",
+    "leader_id": "241d346d-29be-4dc1-a6fb-e784e9f83091",
+    "member_count": 3,
+    "member_preview": [
+      {
+        "member_id": "241d346d-29be-4dc1-a6fb-e784e9f83091",
+        "member_type": "agent",
+        "role": "leader"
+      },
+      {
+        "member_id": "d52422ed-aeaa-4846-b2d9-17f63249b54b",
+        "member_type": "agent",
+        "role": ""
+      },
+      {
+        "member_id": "7ba055ff-fbc0-42bd-8da4-c65d07a07fd0",
+        "member_type": "agent",
+        "role": ""
+      }
+    ],
+    "name": "CirDoc-Plan",
+    "updated_at": "2026-10-17T12:14:23Z",
+    "workspace_id": "85121eb5-c9c7-4018-a975-140810c991cb"
+  },
+  {
+    "archived_at": null,
+    "archived_by": null,
+    "avatar_url": null,
+    "created_at": "2026-10-24T19:51:17Z",
+    "creator_id": "567d94d2-518b-4e10-9d36-b613d0dbb22b",
+    "description": "Handles incoming dev issues end to end: the leader classifies each issue by type, complexity, and risk, delegates scoped sub-issues to the Worker, and loops with the Reviewer until the change is clean and ready for an MR.",
+    "id": "302551ad-d3b1-4c66-b883-c57d99ecd84e",
+    "instructions": "# CirDoc-O: single-worker dev trial\n\n## Mission\n\nTake one issue, or one approved plan task, from triage to an open MR.  \n@balaji.rk owns human approvals and merges. Opening an MR is not approval to merge or deploy.\n\n## Roles and handoffs\n\n- Classify \u0026amp; Route: triages, records risk, tracks review and the human gate.\n- Worker-O: implements, tests, and opens the MR when authorized.\n- Reviewer: reviews the change and its revisions. The reviewer never edits it.\n\nWorkflow:\n\n1. Classify \u0026amp; Route posts ROUTING and @mentions Worker-1.\n2. Worker-O commits the scoped change, runs the targeted test, posts HANDOFF, and @mentions Reviewer.\n3. Reviewer reviews the commit and posts VERDICT.\n   - REQUEST\\_CHANGES: @mention Worker-1. Worker-1 fixes and posts a new HANDOFF.\n   - APPROVE: @mention Classify \u0026amp; Route.\n   - ESCALATE: @mention @balaji.rk and Classify \u0026amp; Route; stop.\n4. Classify \u0026amp; Route confirms that Reviewer approved the exact current commit.\n   - If human\\_gate: yes, ask @balaji.rk for explicit permission to open the MR and wait.\n   - If human\\_gate: no, ask Worker-O to open the MR.\n5. Worker-O opens the MR using git push options and posts its link. Classify \u0026amp; Route sets the issue to In PR Review.\n\nAny commit after approval invalidates that approval. Worker-1 must post a new HANDOFF, and Reviewer must review the new commit. Human approval to open the MR applies only to the reviewed change; if that change is revised, request approval again.\n\n## Structured blocks\n\nPut each field on its own line and use these exact labels.\n\nROUTING  \ntype: \u0026lt;bug|feature|refactor\u0026gt;  \ncomplexity: \u0026lt;trivial|routine|complex\u0026gt;  \nrisk: \u0026lt;low|medium|high\u0026gt; (\u0026lt;reason\u0026gt;)  \nworker: @Worker-O  \nreviewer: @Reviewer  \nhuman\\_gate: \u0026lt;yes|no\u0026gt;  \nround: \u0026lt;1|2|3\u0026gt;\n\nHANDOFF  \nroot cause: \u0026lt;one line\u0026gt;  \nfiles:\n\n- \u0026lt;path\u0026gt; — \u0026lt;reason\u0026gt;  \ntest: \u0026lt;exact command\u0026gt; -\u0026gt; \u0026lt;PASS, n tests\u0026gt;  \ncommit: \u0026lt;full sha\u0026gt;\n\nVERDICT: \u0026lt;APPROVE|REQUEST\\_CHANGES|ESCALATE\u0026gt;  \nreviewed: \u0026lt;full sha\u0026gt;  \n\u0026lt;file:line \\[BLOCKING|NON-BLOCKING\\] specific finding, when applicable\u0026gt;\n\nA HANDOFF requires a committed change and a passing targeted test. If testing fails or cannot run, post BLOCKED with the command, result, and reason instead of a success-shaped HANDOFF.\n\n## Shared rules\n\n- Git only; never use the browser to create an MR. Branch: agent/worker-1/\u0026lt;issue-id\u0026gt;. MR target: CIRCUIT\\_KB\\_STAGING unless the issue specifies another target. Do not make empty commits.\n- Follow AGENTS.md. Never directly edit source/entity/; change the data dictionary instead. Use parser/, never paser/.\n- Never run mvn, gradle, or the full Ant build. Run the targeted JUnit test specified in AGENTS.md.\n- Before changing, or requesting changes to, code outside the diff, confirm that the affected call path reaches it.\n- No unrelated edits or behavior-free edits.\n- For approved-plan issues, the plan is authoritative. If it conflicts with the code, stop, comment on the planning issue, and @mention Plan Lead. Do not improvise.\n- Act only when @mentioned or when it is explicitly your step. Keep comments short; refer to earlier findings rather than repeating them.\n\n## Risk and escalation\n\nHigh-risk areas:\n\n- product\\_package/conf/Security/\\*\\*/security-api.xml\n- product\\_package/conf/Circuit/data-dictionary\\*.xml\n- HOCON .conf files, including circuit.conf, executor.conf, integration.conf\n- Shared actors and handlers used by multiple flows\n- A requested change that would require direct edits to source/entity/\\*\\*: stop; direct edits remain prohibited.\n\nAny high-risk change requires Reviewer approval and an explicit @balaji.rk gate before opening the MR. Discovering a higher risk or larger scope after ROUTING requires a new ROUTING block before work continues.\n\nRound 1 is the initial review. After the first REQUEST\\_CHANGES, the next HANDOFF is round 2. If round 2 still has blocking findings, Classify \u0026amp; Route escalates to @balaji.rk rather than silently assigning another worker or reviewer. Do not open an MR while an escalation is unresolved.",
+    "leader_id": "f95aa45d-92b8-450f-a4ec-729c79573e72",
+    "member_count": 3,
+    "member_preview": [
+      {
+        "member_id": "f95aa45d-92b8-450f-a4ec-729c79573e72",
+        "member_type": "agent",
+        "role": "leader"
+      },
+      {
+        "member_id": "66cfb32d-5df9-4caf-92cd-a54aa4af0ed9",
+        "member_type": "agent",
+        "role": ""
+      },
+      {
+        "member_id": "bc49308c-248d-44c4-98eb-8e4bdcf18e98",
+        "member_type": "agent",
+        "role": ""
+      }
+    ],
+    "name": "CirDoc-O",
+    "updated_at": "2026-10-24T19:52:15Z",
+    "workspace_id": "85121eb5-c9c7-4018-a975-140810c991cb"
+  }
+]

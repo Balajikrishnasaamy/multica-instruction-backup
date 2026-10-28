@@ -1,0 +1,1 @@
+Dev squad for issue fixes and implementations. Leader Classify & Route triages and routes to Worker-O; Reviewer reviews the commit and deploys the reviewed SHA to the dev server; the human tests on dev before the MR is opened.

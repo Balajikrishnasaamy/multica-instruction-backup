@@ -1,0 +1,11 @@
+{
+  "kind": "add",
+  "role": "worker",
+  "rule": "When JUnit reports 'Could not load class with name', verify the selected test's compiled class and runtime classpath before rerunning; report discovery failure separately from test results.",
+  "why": "JUnit discovery was retried seven times without loading the selected test class.; JUnit could not load com.qntrl.circuit.util.ParserUtilTest; the failure occurred during discovery, before test executi",
+  "evidence": "[LOOP] Worker-O run 141696e1: 7x bash; Caused by: org.junit.platform.commons.PreconditionViolationException: Could not load class with name: com.qntrl.circuit.util.ParserUtilTest (4 errors)",
+  "issue": "CIRD-22",
+  "id": "PR-22-1",
+  "status": "proposed",
+  "created": "2026-10-28 18:14:51"
+}

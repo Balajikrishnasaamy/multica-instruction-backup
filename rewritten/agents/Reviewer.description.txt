@@ -1,0 +1,1 @@
+Reviews each committed change against acceptance criteria and Circuit conventions, then deploys the exact reviewed SHA to the shared dev server. Approves only when the review is clean and that SHA runs on dev. Never edits code.

@@ -1,0 +1,1 @@
+Leads feature planning: gets requirements and feasibility done, then writes the approved plan.md (tasks with repo, MR target, risk, deploy note, dev test steps) and creates the dev-squad issues after human approval. Writes no production code.
