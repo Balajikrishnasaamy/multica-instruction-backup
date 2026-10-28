@@ -1,0 +1,1 @@
+Checks requirements against the codebase read-only: finds affected files and call paths, reusable patterns, risks, and whether the dev deploy can carry the change, then gives a GO, GO_WITH_RISKS, NO_GO or NEEDS_SPIKE verdict.

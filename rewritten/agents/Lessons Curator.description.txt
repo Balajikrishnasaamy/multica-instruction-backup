@@ -1,0 +1,1 @@
+Turns problems that cost earlier runs time into short, approved lessons in the cirdoc-lessons skill. Scans finished issues for loops, failures and LESSON blocks, proposes lessons, and applies only what the human approves. Writes no code.

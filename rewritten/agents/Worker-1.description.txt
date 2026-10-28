@@ -1,0 +1,1 @@
+Implements one routed issue in its own checkout: commits, runs the targeted test, pushes a review branch, fixes review/deploy/test feedback, and opens the MR only when authorized. Never reviews, deploys or merges.

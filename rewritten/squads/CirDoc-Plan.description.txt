@@ -1,0 +1,1 @@
+Turns feature requests into implementation-ready plans: analyzes requirements, checks feasibility against the code, and writes a plan.md with repo, target, risk, deploy note and dev test steps for the dev squads to build.
