@@ -18,6 +18,7 @@ rule: <what every later run must do or avoid, one line>
 
 ## Worker
 - **W-001** (CIRD-23, 2026-10-28): Do not use EntityUtilTest or CriteriaQueryParserTest as your targeted test: they do not compile on an unchanged CIRCUIT_KB_STAGING (Entity.getEntityAdapter, Byte vs int). Pick another test class or write a new one, and never report that compile error as caused by your change. — why: verified with run_test.sh on the untouched target branch
+- **W-002** (CIRD-22, 2026-10-28): When JUnit reports 'Could not load class with name', verify the selected test's compiled class and runtime classpath before rerunning; report discovery failure separately from test results. — why: JUnit discovery was retried seven times without loading the selected test class.; JUnit could not load com.qntrl.circuit.util.ParserUtilTest; the failure occurred during discovery, before test executi
 
 ## Reviewer
 - (no lessons yet)

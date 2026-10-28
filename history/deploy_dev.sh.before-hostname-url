@@ -1,0 +1,303 @@
+#!/bin/bash
+# deploy_dev.sh — "Deploy to dev" step for the Multica pipeline (commit-based flow).
+#
+# Flow: Worker commits + pushes its branch (no MR) -> Reviewer approves a SHA -> Reviewer runs this
+# script for that exact SHA -> human tests on dev -> Worker opens the MR.
+#
+# What it does: builds the commit in a temp dir (git archive, never your checkout's dirty files),
+# javac's it against the local build's jars, patches the classes into the owning jars in WEB-INF/lib,
+# kills the running server, restarts it, waits for a healthy start and auto-rolls back if it fails.
+# The newest deploy always wins: it kills the running server AND preempts a deploy still in progress.
+#
+# Usage:
+#   deploy_dev.sh --repo circuit|qntrlworker|qntrlcore --src <checkout> --sha <commit>
+#                 [--issue <issue-id>] [--branch <branch>] [--target <mr-target-branch>] [--dry-run] [--no-restart] [--timeout <sec>]
+#   deploy_dev.sh --rollback [<backup-id>]     restore jars from a backup and restart
+#   deploy_dev.sh --status                     print the last deploy report (deploy/last.json)
+#
+#   --src     a git checkout that contains (or can fetch) the commit; Reviewer's own workdir is fine
+#   --branch  if --sha is not present locally, `git fetch origin <branch>` first (Worker-1 pushes it)
+#   --issue   issue identifier recorded in deploy/last.json and deploy/history
+#   --target  only used to warn about changed non-Java files that this script cannot deploy
+#
+# Exit codes: 0 deployed+healthy | 1 compile/map failure | 2 usage/bad commit | 3 lock problem
+#             4 startup failed, rolled back | 5 startup failed AND rollback failed | 6 preempted by newer deploy
+set -uo pipefail
+
+BUILD=/Users/balaji-6091/Build/qntrl
+SAS=$BUILD/AdventNet/Sas
+WEBINF=$SAS/tomcat/webapps/ROOT/WEB-INF
+LIB=$WEBINF/lib
+STATE=$BUILD/deploy
+BACKUPS=$STATE/backups
+LOCK=$STATE/.lock
+REPORT=$STATE/last.json
+SERVER_LOG=$BUILD/deploy_run.log
+KEEP_BACKUPS=5
+
+export JAVA_HOME=/opt/homebrew/opt/openjdk@17
+export PATH=$JAVA_HOME/bin:$PATH
+
+REPO=""; SRC=""; SHA=""; BRANCH=""; TARGET=""; ISSUE=""; RESTART=1; DRY=0; TIMEOUT=450; MODE=deploy; RB_ID=""
+
+die() { echo "ERROR: $*" >&2; exit "${2:-2}"; }
+log() { echo "[deploy $(date +%H:%M:%S)] $*"; }
+
+while [ $# -gt 0 ]; do
+	case "$1" in
+		--repo) REPO=$2; shift 2 ;;
+		--src) SRC=$2; shift 2 ;;
+		--sha|--ref) SHA=$2; shift 2 ;;
+		--branch) BRANCH=$2; shift 2 ;;
+		--target) TARGET=$2; shift 2 ;;
+		--issue) ISSUE=$2; shift 2 ;;
+		--no-restart) RESTART=0; shift ;;
+		--dry-run) DRY=1; shift ;;
+		--timeout) TIMEOUT=$2; shift 2 ;;
+		--rollback) MODE=rollback; if [ -n "${2:-}" ] && [ "${2#--}" = "$2" ]; then RB_ID=$2; shift; fi; shift ;;
+		--status) MODE=status; shift ;;
+		-h|--help) sed -n '2,28p' "$0"; exit 0 ;;
+		*) die "unknown arg: $1" ;;
+	esac
+done
+
+mkdir -p "$BACKUPS"
+if [ "$MODE" = status ]; then [ -f "$REPORT" ] && cat "$REPORT" || echo "no deploy yet"; exit 0; fi
+
+TMP=$(mktemp -d "${TMPDIR:-/tmp}/deploy_dev.XXXXXX")
+HAVE_LOCK=0; PATCHING=0; BKP=""
+cleanup() {
+	rm -rf "$TMP"
+	if [ $HAVE_LOCK -eq 1 ] && [ "$(cut -d' ' -f1 "$LOCK/owner" 2>/dev/null)" = "$$" ]; then rm -rf "$LOCK"; fi
+}
+trap cleanup EXIT
+
+export D_REPO="" D_ISSUE="" D_SHA="" D_BACKUP="" D_CLASSES=0 D_JARS="" D_UNMAPPED="" D_SERVER_LOG="$SERVER_LOG"
+write_report() { # status message
+	python3 - "$REPORT" "$1" "$2" <<-'PY'
+	import json, os, sys, time
+	path, status, msg = sys.argv[1:4]
+	env = os.environ
+	json.dump({
+	    "status": status, "message": msg, "time": time.strftime("%Y-%m-%dT%H:%M:%S"),
+	    "repo": env.get("D_REPO", ""), "issue": env.get("D_ISSUE", ""), "sha": env.get("D_SHA", ""), "backup": env.get("D_BACKUP", ""),
+	    "classes": int(env.get("D_CLASSES", "0") or 0),
+	    "jars": [j for j in env.get("D_JARS", "").split("\n") if j],
+	    "unmapped_packages": [p for p in env.get("D_UNMAPPED", "").split("\n") if p],
+	    "server_log": env.get("D_SERVER_LOG", ""),
+	}, open(path, "w"), indent=2)
+	PY
+	cat "$REPORT"
+}
+
+# ---------- server control ----------
+stop_server() { bash "$BUILD/qntrl_run.sh" stop > "$TMP/stop.log" 2>&1 || true; }
+
+start_server() { # returns 0 when healthy
+	log "starting server (log: $SERVER_LOG)"
+	: > "$SERVER_LOG"
+	# New session so the server outlives the calling agent's process group.
+	python3 -c 'import os,sys; os.setsid(); os.execvp(sys.argv[1], sys.argv[1:])' \
+		bash "$BUILD/qntrl_run.sh" run >> "$SERVER_LOG" 2>&1 < /dev/null &
+	disown
+	local waited=0
+	while [ $waited -lt "$TIMEOUT" ]; do
+		if grep -q "\[ FAILED \]" "$SERVER_LOG" 2>/dev/null; then
+			log "service FAILED during startup:"; grep "\[ FAILED \]" "$SERVER_LOG" | head -5
+			log "last log lines:"; tail -15 "$SERVER_LOG"; return 1
+		fi
+		if grep -qE "Server startup in|Server started in ::" "$SERVER_LOG" 2>/dev/null; then
+			sleep 5
+			if grep -q "\[ FAILED \]" "$SERVER_LOG"; then grep "\[ FAILED \]" "$SERVER_LOG" | head -5; return 1; fi
+			local code; code=$(curl -sk -o /dev/null -w '%{http_code}' --max-time 10 https://localhost:8443/ || true)
+			log "server up after ${waited}s, https://localhost:8443/ -> $code"
+			[ "$code" != "000" ] && return 0 || return 1
+		fi
+		sleep 5; waited=$((waited + 5))
+	done
+	log "no 'Server startup in' / 'Server started in ::' within ${TIMEOUT}s"; tail -15 "$SERVER_LOG"; return 1
+}
+
+restore_backup() { # backup dir
+	local b=$1
+	[ -f "$b/manifest" ] || { echo "no manifest in $b"; return 1; }
+	while IFS= read -r rel; do cp -p "$b/jars/$rel" "$LIB/$rel" || return 1; done < "$b/manifest"
+	if [ -f "$b/classes/activejdbc_models.properties" ]; then cp -p "$b/classes/activejdbc_models.properties" "$WEBINF/classes/" || return 1; fi
+}
+
+# ---------- one shared dev server: the NEWEST deploy wins ----------
+acquire_lock() {
+	local tries=0 holder pid
+	while ! mkdir "$LOCK" 2>/dev/null; do
+		holder=$(cat "$LOCK/owner" 2>/dev/null); pid=${holder%% *}
+		if [ -z "$pid" ] || ! kill -0 "$pid" 2>/dev/null; then
+			log "removing stale lock (${holder:-no owner})"; rm -rf "$LOCK"; continue
+		fi
+		if [ $tries -eq 0 ]; then log "preempting running deploy: $holder"; pkill -TERM -P "$pid" 2>/dev/null; kill -TERM "$pid" 2>/dev/null; fi
+		tries=$((tries + 1))
+		if [ $tries -gt 60 ]; then log "preempted deploy ignored SIGTERM; killing"; pkill -KILL -P "$pid" 2>/dev/null; kill -KILL "$pid" 2>/dev/null; sleep 1; fi
+		[ $tries -gt 90 ] && die "could not take deploy lock from $holder" 3
+		sleep 1
+	done
+	HAVE_LOCK=1; echo "$$ ${REPO:-rollback} $(date '+%F %T')" > "$LOCK/owner"
+	if [ -f "$STATE/inflight" ]; then # previous deploy was killed mid-patch: jars may be half-written
+		local ib; ib=$(cat "$STATE/inflight"); log "previous deploy died mid-patch; restoring $ib"
+		restore_backup "$ib" && rm -f "$STATE/inflight" || die "could not repair half-patched jars from $ib" 3
+	fi
+}
+on_term() {
+	log "preempted by a newer deploy"
+	if [ $PATCHING -eq 1 ] && [ -n "$BKP" ]; then restore_backup "$BKP" && rm -f "$STATE/inflight"; fi
+	write_report preempted "superseded by a newer deploy before completing; redeploy if still needed" >/dev/null
+	exit 6
+}
+trap on_term TERM INT
+
+# ---------- rollback mode ----------
+if [ "$MODE" = rollback ]; then
+	B=${RB_ID:+$BACKUPS/$RB_ID}; B=${B:-$(ls -1d "$BACKUPS"/*/ 2>/dev/null | sort | tail -1)}; B=${B%/}
+	[ -d "$B" ] || die "no backup found"
+	acquire_lock
+	export D_BACKUP; D_BACKUP=$(basename "$B")
+	log "rolling back to $B"; stop_server
+	restore_backup "$B" || { write_report rollback_failed "restore failed"; exit 5; }
+	start_server && { write_report rolled_back "restored $(basename "$B") and server is healthy"; exit 0; }
+	write_report rollback_failed "restored but server unhealthy; see $SERVER_LOG"; exit 5
+fi
+
+# ---------- repo selection ----------
+# SRC_DIRS: source roots to compile. JAR_RE: only jars matching this may be patched.
+# EXCLUDE_RE: compiled packages that are never deployed (samples).
+EXCLUDE_RE='^$'; AJDBC=0
+case "$REPO" in
+	circuit)     SRC=${SRC:-$HOME/Cursor/circuit};     SRC_DIRS="source/worker source/executor source/store source/entity source/qntrl"
+	             JAR_RE='^(hbase/)?qntrl-.*\.jar$' ;;
+	qntrlworker) SRC=${SRC:-$HOME/Cursor/qntrlworker}; SRC_DIRS="source/reactor source/reactoragent"
+	             JAR_RE='^qntrl-worker-.*\.jar$' ;;
+	qntrlcore)   SRC=${SRC:-$HOME/Cursor/qntrlcore};   SRC_DIRS="source"
+	             JAR_RE='^(blueprint|bpmodels|bpqueue|activejdbc)\.jar$'; EXCLUDE_RE='^sample/'; AJDBC=1 ;;
+	*) die "--repo circuit|qntrlworker|qntrlcore required" ;;
+esac
+git -C "$SRC" rev-parse --git-dir >/dev/null 2>&1 || die "$SRC is not a git checkout"
+export D_REPO=$REPO D_ISSUE=$ISSUE
+
+# ---------- resolve the exact commit ----------
+if [ -n "$SHA" ] && git -C "$SRC" cat-file -e "$SHA^{commit}" 2>/dev/null; then :
+elif [ -n "$BRANCH" ]; then
+	log "fetching origin $BRANCH"
+	git -C "$SRC" fetch -q origin "$BRANCH" || die "git fetch origin $BRANCH failed (was the branch pushed?)"
+	[ -z "$SHA" ] && SHA=FETCH_HEAD
+fi
+SHA=${SHA:-HEAD}
+D_SHA=$(git -C "$SRC" rev-parse --verify "$SHA^{commit}" 2>/dev/null) || die "commit '$SHA' not found in $SRC (push the branch and pass --branch?)"
+export D_SHA
+log "repo=$REPO sha=$D_SHA src=$SRC"
+
+TREE=$TMP/src; mkdir -p "$TREE"
+git -C "$SRC" archive "$D_SHA" $SRC_DIRS | tar -x -C "$TREE" || die "git archive failed" 1
+
+if [ -n "$TARGET" ] && git -C "$SRC" rev-parse --verify -q "origin/$TARGET" >/dev/null; then
+	other=$(git -C "$SRC" diff --name-only "origin/$TARGET...$D_SHA" 2>/dev/null | grep -v '\.java$')
+	[ -n "$other" ] && log "NOTE: non-Java files changed vs $TARGET are NOT deployed by this script (config/web/dictionary need a manual step): $(echo $other)"
+fi
+
+# ---------- compile ----------
+OUT=$TMP/classes; mkdir -p "$OUT"
+CP=$(find "$SAS/lib" "$SAS/tomcat/lib" "$LIB" -name '*.jar' | tr '\n' ':')
+( cd "$TREE" && find $SRC_DIRS -name '*.java' ) > "$TMP/sources"
+log "javac $(wc -l < "$TMP/sources" | tr -d ' ') files"
+if ! ( cd "$TREE" && javac -nowarn -encoding UTF-8 --release 17 -proc:none -cp "$CP" -d "$OUT" @"$TMP/sources" ) > "$TMP/javac.log" 2>&1; then
+	grep -v '^Note:' "$TMP/javac.log" | head -60
+	write_report compile_failed "javac failed; first errors printed above"; exit 1
+fi
+
+# ActiveJDBC models must be bytecode-instrumented after compile (same step as the Ant build).
+if [ $AJDBC -eq 1 ]; then
+	log "activejdbc instrumentation"
+	ICP="$OUT:$LIB/javassist-3.27.0-GA.jar:$LIB/AdvMicroFramework.jar:$LIB/AdvPersistence.jar:$LIB/activejdbc.jar"
+	java -cp "$ICP" -Dactivejdbc_properties_dir="$OUT" -DoutputDirectory="$OUT" org.javalite.instrumentation.Main > "$TMP/instr.log" 2>&1 \
+		|| { tail -20 "$TMP/instr.log"; write_report compile_failed "activejdbc instrumentation failed"; exit 1; }
+fi
+
+# ---------- map classes -> owning jar ----------
+( cd "$OUT" && find . -type f -name '*.class' | sed 's#^\./##' | sort ) > "$TMP/built"
+D_CLASSES=$(wc -l < "$TMP/built" | tr -d ' '); export D_CLASSES
+: > "$TMP/index"
+while IFS= read -r jar; do
+	rel=${jar#$LIB/}
+	unzip -Z1 "$jar" 2>/dev/null | grep -v '/$' | sed "s#^#$rel\t#" >> "$TMP/index"
+done < <(find "$LIB" -maxdepth 2 -name '*.jar')
+
+python3 - "$TMP" "$JAR_RE" "$EXCLUDE_RE" <<-'PY'
+import os, re, sys, collections
+tmp, jar_re, excl = sys.argv[1], re.compile(sys.argv[2]), re.compile(sys.argv[3])
+by_entry, by_pkg = collections.defaultdict(set), collections.defaultdict(set)
+for line in open(f"{tmp}/index"):
+    jar, entry = line.rstrip("\n").split("\t", 1)
+    if not jar_re.match(jar): continue
+    by_entry[entry].add(jar); by_pkg[os.path.dirname(entry)].add(jar)
+def owners(entry):
+    if entry in by_entry: return by_entry[entry]
+    pkg = os.path.dirname(entry)
+    while pkg:                      # exact package, else nearest ancestor package that a jar owns
+        if pkg in by_pkg: return by_pkg[pkg]
+        pkg = os.path.dirname(pkg)
+    return None
+plan, unmapped = collections.defaultdict(list), set()
+for e in (l.strip() for l in open(f"{tmp}/built")):
+    if excl.match(e): continue
+    jars = owners(e)
+    if not jars: unmapped.add(os.path.dirname(e)); continue
+    for j in jars: plan[j].append(e)
+os.makedirs(f"{tmp}/plan", exist_ok=True)
+with open(f"{tmp}/jars", "w") as jf:
+    for j, entries in sorted(plan.items()):
+        jf.write(j + "\n")
+        open(f"{tmp}/plan/" + j.replace("/", "__"), "w").write("\n".join(entries) + "\n")
+open(f"{tmp}/unmapped", "w").write("\n".join(sorted(unmapped)))
+PY
+D_JARS=$(cat "$TMP/jars"); D_UNMAPPED=$(cat "$TMP/unmapped"); export D_JARS D_UNMAPPED
+while IFS= read -r j; do log "  $j <- $(wc -l < "$TMP/plan/${j//\//__}" | tr -d ' ') classes"; done < "$TMP/jars"
+[ -n "$D_UNMAPPED" ] && log "WARNING: classes in these packages have no owning jar and are NOT deployed: $(echo $D_UNMAPPED)"
+[ -s "$TMP/jars" ] || { write_report compile_failed "no target jars matched"; exit 1; }
+
+# activejdbc_models.properties is regenerated by instrumentation; ship it if it changed (new/removed model)
+PROPS_CHANGED=0
+if [ $AJDBC -eq 1 ] && [ -f "$OUT/activejdbc_models.properties" ] && ! diff -q <(sort "$OUT/activejdbc_models.properties") <(sort "$WEBINF/classes/activejdbc_models.properties") >/dev/null; then
+	PROPS_CHANGED=1; log "activejdbc_models.properties changed; will update WEB-INF/classes"
+fi
+
+if [ $DRY -eq 1 ]; then write_report dry_run "compiled OK; no jars changed"; exit 0; fi
+
+# ---------- backup, kill running server, patch ----------
+acquire_lock
+ID=$(date +%Y%m%d-%H%M%S)-$REPO-${D_SHA:0:10}; B=$BACKUPS/$ID; export D_BACKUP=$ID; BKP=$B
+mkdir -p "$B/jars"; cp "$TMP/jars" "$B/manifest"; echo "$D_SHA" > "$B/sha"
+while IFS= read -r j; do mkdir -p "$B/jars/$(dirname "$j")"; cp -p "$LIB/$j" "$B/jars/$j"; done < "$TMP/jars"
+if [ $PROPS_CHANGED -eq 1 ]; then mkdir -p "$B/classes"; cp -p "$WEBINF/classes/activejdbc_models.properties" "$B/classes/"; fi
+log "backup: $B"
+
+log "stopping server (killing any running build)"; stop_server   # never rewrite jars under a running JVM
+echo "$B" > "$STATE/inflight"; PATCHING=1
+while IFS= read -r j; do
+	( cd "$OUT" && jar uf "$LIB/$j" @"$TMP/plan/${j//\//__}" ) || {
+		log "jar update failed for $j; restoring"; restore_backup "$B"; PATCHING=0; rm -f "$STATE/inflight"
+		write_report deploy_failed "jar update failed: $j"; exit 4; }
+done < "$TMP/jars"
+[ $PROPS_CHANGED -eq 1 ] && cp "$OUT/activejdbc_models.properties" "$WEBINF/classes/activejdbc_models.properties"
+PATCHING=0; rm -f "$STATE/inflight"
+echo "$(date +%F_%T) ${ISSUE:--} $D_SHA $REPO $ID" >> "$STATE/history"
+ls -1d "$BACKUPS"/*/ | sort -r | tail -n +$((KEEP_BACKUPS + 1)) | while IFS= read -r old; do rm -rf "$old"; done
+
+if [ $RESTART -eq 0 ]; then write_report patched "jars patched; server left stopped (--no-restart)"; exit 0; fi
+
+if start_server; then
+	write_report deployed "deployed $REPO@${D_SHA:0:10}; server healthy"; exit 0
+fi
+cp "$SERVER_LOG" "$B/failed_startup.log"
+log "startup failed -> rolling back jars from $ID"
+stop_server
+if restore_backup "$B" && start_server; then
+	write_report rolled_back "new build failed to start (log saved to $B/failed_startup.log); previous jars restored and server healthy"; exit 4
+fi
+write_report rollback_failed "startup failed and rollback did not recover; see $SERVER_LOG"; exit 5

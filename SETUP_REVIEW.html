@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>CirDoc agent setup: review and to-do list</title>
+<style>
+body{font:15px/1.55 -apple-system,Segoe UI,Helvetica,Arial,sans-serif;margin:0;background:#f6f8fa;color:#1f2328}
+header{background:#24292f;color:#fff;padding:22px 32px}
+header h1{margin:0;font-size:24px} header p{margin:6px 0 0;opacity:.8}
+main{max-width:1040px;margin:0 auto;padding:10px 32px 70px}
+h2{margin:34px 0 10px;font-size:19px;border-bottom:1px solid #d0d7de;padding-bottom:6px}
+h3{margin:0 0 4px;font-size:15px}
+.score{display:flex;gap:16px;flex-wrap:wrap;margin:18px 0}
+.big{background:#fff;border:1px solid #d0d7de;border-radius:10px;padding:16px 26px;text-align:center}
+.big .n{font-size:44px;font-weight:700;line-height:1} .big .l{color:#656d76;font-size:12px;text-transform:uppercase;margin-top:6px}
+table{border-collapse:collapse;width:100%;background:#fff;border:1px solid #d0d7de;border-radius:8px;overflow:hidden;margin:8px 0}
+th,td{text-align:left;padding:8px 12px;border-bottom:1px solid #eaeef2;vertical-align:top}
+th{background:#f6f8fa;font-size:12px;color:#656d76;text-transform:uppercase}
+.bar{height:8px;background:#eaeef2;border-radius:4px;min-width:120px} .bar i{display:block;height:8px;border-radius:4px}
+.tag{display:inline-block;border-radius:10px;padding:1px 9px;font-size:11px;font-weight:600;color:#fff}
+.ok{background:#1a7f37}.part{background:#9a6700}.no{background:#cf222e}.s{background:#6e7781}
+.item{background:#fff;border:1px solid #d0d7de;border-left:5px solid #cf222e;border-radius:8px;padding:12px 16px;margin:10px 0}
+.item.good{border-left-color:#0969da}
+.item .meta{color:#656d76;font-size:12px;margin-top:6px}
+.item p{margin:4px 0}
+code{font:12px ui-monospace,Menlo,monospace;background:#eef1f4;padding:1px 5px;border-radius:4px}
+.note{background:#fff8c5;border:1px solid #d4a72c;border-radius:8px;padding:10px 14px;margin:12px 0}
+footer{color:#656d76;font-size:12px;margin-top:40px}
+</style></head><body>
+<header><h1>CirDoc agent setup: review and to-do list</h1>
+<p>Written 2026-10-28 after the learning loop was added. Facts below come from what was run or read on this machine; anything not run is marked as such.</p></header>
+<main>
+
+<h2>1. Overall rating</h2>
+<div class="score">
+ <div class="big"><div class="n">6 / 10</div><div class="l">overall</div></div>
+ <div class="big"><div class="n">8 / 10</div><div class="l">design</div></div>
+ <div class="big"><div class="n">3.5 / 10</div><div class="l">proven in real use</div></div>
+</div>
+<p><b>In one line:</b> the design is good and unusually safe for an agent setup (human gate, exact-SHA discipline, auto-rollback, approval-gated learning), but most of it has only been tested in pieces. The first full run on a real issue is the real test, and it has not happened yet.</p>
+
+<table>
+<tr><th style="width:230px">Area</th><th style="width:70px">Score</th><th style="width:150px"></th><th>Why</th></tr>
+<tr><td>Workflow and human gates</td><td>8.5</td><td><div class="bar"><i style="width:85%;background:#1a7f37"></i></div></td><td>Commit, review, deploy to dev, your TEST-OK, then MR. Fixed MR targets per repo, one comment per run, single-mention rule, SHA-bound approvals. Weakness: every gate is an instruction an agent could ignore, not something enforced by tooling.</td></tr>
+<tr><td>Learning loop</td><td>8</td><td><div class="bar"><i style="width:80%;background:#1a7f37"></i></div></td><td>The only part verified end to end with a real approval: Curator scanned CIRD-22, found a real problem, proposed PR-22-1, you approved, it became W-002 in the live skill and the backup, and it skipped CIRD-23's already-covered lessons. Gate refuses agent-written approvals, duplicates, secrets and over-long text. Too young to know if lessons get followed.</td></tr>
+<tr><td>Tooling (deploy, test, report)</td><td>6</td><td><div class="bar"><i style="width:60%;background:#9a6700"></i></div></td><td>Built carefully and tested against copies and dry runs, including preemption and the HTML report. But <code>deploy_dev.sh</code> has never done a real deploy: its history file is empty and there are no backups.</td></tr>
+<tr><td>Guardrails against agent failure</td><td>6.5</td><td><div class="bar"><i style="width:65%;background:#9a6700"></i></div></td><td>Loop breaker, tool-call budget, path rules and mention rules exist because real failures (476 identical failing commands, a run killed at 505 tool calls, a Reviewer woken by a mention in ROUTING) were analysed. None of these fixes has been seen working on a fresh run yet.</td></tr>
+<tr><td>Security hygiene</td><td>4.5</td><td><div class="bar"><i style="width:45%;background:#cf222e"></i></div></td><td>Agents run with your full user rights (Copilot uses <code>--allow-all</code>). <code>qntrl_run.sh</code> holds tokens in plain text, and your Multica API token was printed in a tool output earlier. "Don't read ~/Build" is an instruction, not a barrier.</td></tr>
+<tr><td>Coverage</td><td>4</td><td><div class="bar"><i style="width:40%;background:#cf222e"></i></div></td><td>Automated tests only for circuit, and two of its test classes do not compile on the clean branch. qntrlworker and qntrlcore have none. Deploys carry Java classes only, not config.</td></tr>
+<tr><td>Operations and visibility</td><td>4</td><td><div class="bar"><i style="width:40%;background:#cf222e"></i></div></td><td>No notifications beyond Multica itself, no status page, no queue for the single dev server, the backup folder is not under version control, and everything stops when the laptop sleeps.</td></tr>
+</table>
+
+<h2>2. What is verified and what is not</h2>
+<table>
+<tr><th style="width:290px">Piece</th><th style="width:110px">Status</th><th>Evidence</th></tr>
+<tr><td>Learning loop incl. human approval</td><td><span class="tag ok">verified</span></td><td>Real approval comment on CIRD-25 was applied as W-002; skill and backup in sync.</td></tr>
+<tr><td>Instructions applied and backed up</td><td><span class="tag ok">verified</span></td><td>Live text read back and compared; <code>rewritten/</code> equals <code>applied/</code>; drift check works.</td></tr>
+<tr><td>run_test.sh and HTML report</td><td><span class="tag ok">verified</span></td><td>Pass, fail, compile error, no tests, missing class and bad args all give the right exit code and a report; secrets masked.</td></tr>
+<tr><td>deploy_dev.sh: compile and jar mapping</td><td><span class="tag part">dry-run only</span></td><td>All three repos build and map every class to a jar.</td></tr>
+<tr><td>deploy_dev.sh: stop, patch, restart, health check, rollback</td><td><span class="tag no">never run</span></td><td>Preemption was simulated on a copy of the jars with the server calls stubbed. The real server was never restarted by it.</td></tr>
+<tr><td>Whole loop on a real issue with the new instructions</td><td><span class="tag no">never run</span></td><td>CIRD-23 went to Worker-O before the fixes and stalled. No issue has passed through HANDOFF, review, deploy, TEST-OK and MR yet.</td></tr>
+<tr><td>MR creation on GitLab (push options and link capture)</td><td><span class="tag no">never run</span></td><td>Push options were tested on a local git server only; <code>glab</code> could not reach GitLab from here.</td></tr>
+<tr><td>Worker-1 on the Cursor runtime</td><td><span class="tag no">unknown</span></td><td>Cursor's local config allows only <code>Shell(ls)</code> in allowlist mode. The daemon may pass its own flags; Cursor has not run yet, so I could not see them.</td></tr>
+<tr><td>qntrlcore repo cache</td><td><span class="tag part">fixed, untested by an agent</span></td><td>You deleted the 3 case-colliding branches. A daemon-style clone plus backfill fetch now exits 0, and after a daemon restart the cache holds 3,612 branches including <code>KB_BP_FINAL_BRANCH</code>. No agent has checked out qntrlcore through <code>multica repo checkout</code> yet.</td></tr>
+</table>
+
+<h2>3. Must have</h2>
+<p>Things that, if left undone, will make the first real runs fail, mislead you, or put something at risk.</p>
+
+<div class="item"><h3>M1. Run one small real issue through the whole loop, supervised</h3>
+<p><b>Why:</b> it is the only way to find out whether the instructions are followed in practice: single-mention rule, <code>git -C</code> path rule, loop breaker, HANDOFF format, Reviewer's 20-minute deploy call, the DEPLOY block, the attached HTML report, TEST-OK, MR link. Today the design is proven in parts only.</p>
+<p class="meta">Effort: small. Pick a trivial circuit change, CirDoc-P with Worker-1, and watch the run. Feed every surprise to the Curator.</p></div>
+
+<div class="item" style="border-left-color:#1a7f37;opacity:.85"><h3><span class="tag ok">DONE 2026-10-28</span> M2. Fix qntrlcore checkout (3 branch pairs that differed only in letter case)</h3>
+<p><b>What was wrong:</b> the qntrlcore remote had three branch pairs whose names differed only in case (<code>SDP_DUMMY</code>/<code>sdp_dummy</code>, <code>HACKSAW_ISSUE_FIX</code>/<code>hacksaw_issue_fix</code>, <code>SECURITY_BUG_FIX</code>/<code>security_bug_fix</code>). Your manual clone worked because <code>git clone</code> stores refs in one packed file; the daemon's second fetch writes one file per branch, so each pair collided on this case-insensitive APFS volume, git exited 1, and the daemon dropped the repo cache.</p>
+<p><b>What fixed it:</b> you deleted one branch of each pair on the remote. I re-ran the daemon's clone and backfill fetch (exit 0, no collisions), then restarted the daemon, which re-cloned qntrlcore with all 3,612 branches.</p>
+<p><b>Still open:</b> one real <code>multica repo checkout</code> of qntrlcore by an agent. If anyone recreates a branch that differs only in case, this breaks again; circuit and qntrlworker have no such pairs.</p></div>
+
+<div class="item"><h3>M3. Check that each runtime may run what its agents need</h3>
+<p><b>Why:</b> the Curator was blocked on the Claude runtime ("requires approval") until moved to Copilot. Cursor's config allows only <code>ls</code>. A worker that cannot run <code>git</code>, <code>python3</code> or <code>run_test.sh</code> will stall or loop. Make a small per-runtime test (git, <code>run_test.sh</code>, <code>multica</code>, <code>lessons.py</code>) and set the allow-lists or the runtime choice before assigning roles.</p>
+<p class="meta">Effort: small. Needed before Worker-1 runs on Cursor.</p></div>
+
+<div class="item"><h3>M4. Prove the real deploy and the rollback once, deliberately</h3>
+<p><b>Why:</b> restart, health check and automatic rollback are the riskiest code and have never touched the real server. Do one deploy of a harmless commit while you watch, then one deploy of a commit that breaks startup, and confirm the old jars come back and the server returns. Do the second one on a copy of the build if possible.</p>
+<p class="meta">Effort: small, 30 minutes, you present.</p></div>
+
+<div class="item"><h3>M5. Stop treating a down dependency as a bad build</h3>
+<p><b>Why:</b> the deploy rolls back on any <code>[ FAILED ]</code> service. Your Oct 26 log shows ReactorWorkerService failing once with no recorded cause. If MySQL or Cassandra is down, every deploy would roll back and blame the worker. Add a preflight to <code>deploy_dev.sh</code> that checks MySQL (3306) and Cassandra (9042) and exits with "environment down" before touching any jar.</p>
+<p class="meta">Effort: small.</p></div>
+
+<div class="item"><h3>M6. Serialize use of the dev server across issues</h3>
+<p><b>Why:</b> there is one dev server. Deploying issue B replaces issue A's classes while you may be testing A, and your TEST-OK on A would then be on the wrong build. Today this is only a sentence in the instructions. Add a reservation (issue id, sha, time) that the deploy script checks and Classify & Route reads, so the second issue waits.</p>
+<p class="meta">Effort: medium. Matters as soon as CirDoc-P and CirDoc-O run at the same time.</p></div>
+
+<div class="item"><h3>M7. Deploy config changes, or refuse to call the build "deployed"</h3>
+<p><b>Why:</b> the script ships Java classes only. Many Circuit fixes are config or security XML (your own working tree has changes to <code>security-rule.xml</code>, <code>functional.conf</code>, <code>integration.conf</code>), and those are exactly the high-risk files. A TEST-OK on such a build tests something that is not running. Copy <code>product_package/conf</code> files from the commit to the build, or make Reviewer report <code>partially_deployed</code> and block the gate until you confirm.</p>
+<p class="meta">Effort: medium.</p></div>
+
+<div class="item"><h3>M8. Protect secrets and shrink what agents can reach</h3>
+<p><b>Why:</b> agents run with your full rights, and <code>qntrl_run.sh</code> keeps KMS, Transmail and client tokens in plain text and appends them to a config file on every run. Rotate the Multica token that was printed, move local secrets to a <code>chmod 600</code> env file, and run agents from a dedicated macOS user or at least outside the home directory that holds <code>~/Build</code>. The backup tooling already skips <code>qntrl_run.sh</code>.</p>
+<p class="meta">Effort: small for the rotation and env file, medium for a separate user.</p></div>
+
+<div class="item"><h3>M9. Put the backup folder under version control</h3>
+<p><b>Why:</b> <code>multica-instruction-backup</code> is now the source of truth for all agent instructions, tools and lessons, and it exists only on this laptop. Make it a git repo with a private remote and commit after every apply or approved lesson.</p>
+<p class="meta">Effort: small.</p></div>
+
+<div class="item"><h3>M10. Confirm the MR step against GitLab</h3>
+<p><b>Why:</b> the push options and the link capture from the push output were only tested on a local server. If GitLab prints the link differently, or the options are rejected, the last step of every issue fails. Check with a throwaway branch and a draft MR, and confirm that cleanup of the review branch works.</p>
+<p class="meta">Effort: small. Can be part of M1.</p></div>
+
+<h2>4. Good to have</h2>
+<p>Improvements that make the setup cheaper, easier to trust or easier to run. None blocks a first run.</p>
+
+<div class="item good"><h3>G1. Notifications for the moments that need you</h3>
+<p><b>Why:</b> the loop waits on you at TEST-OK, ESCALATE, blocked and failed deploys. Today you must watch Multica. A Cliq or Slack message at those points is step 8 of your own flow diagram and shortens every cycle.</p></div>
+
+<div class="item good"><h3>G2. Replay tests for the instructions</h3>
+<p><b>Why:</b> every instruction change is currently tested by waiting for a real issue. A few mock issues (a clean fix, a failing test, a failed deploy, a plan conflict) that run against a scratch repo would catch regressions like the mention-in-ROUTING bug before they cost real runs.</p></div>
+
+<div class="item good"><h3>G3. Enforce "only Reviewer deploys" in tooling</h3>
+<p><b>Why:</b> at the moment it is a rule agents are told. A signed token the Reviewer run receives, or a check on the calling workdir, would stop a confused worker from restarting the shared server.</p></div>
+
+<div class="item good"><h3>G4. Choose one model per role and retire weak combinations</h3>
+<p><b>Why:</b> Worker-O on <code>glm-5.3-flash</code> looped 476 times, while the Curator on a stronger model followed its instructions precisely. Decide models by evidence after the first real runs, and record them in the backup so they are not lost.</p></div>
+
+<div class="item good"><h3>G5. Extend tests beyond circuit, and fix the two broken classes</h3>
+<p><b>Why:</b> qntrlworker and qntrlcore have no automated tests, so for them the only test is yours. <code>EntityUtilTest</code> and <code>CriteriaQueryParserTest</code> do not compile on the clean branch (lesson W-001 works around it). Step 7 of your diagram, suites plus integration plus k6, does not exist yet.</p></div>
+
+<div class="item good"><h3>G6. Cost and runtime budgets per issue</h3>
+<p><b>Why:</b> one stuck run used 20 million cached tokens before it was cancelled. <code>multica issue usage</code> exists. A daily report, and an automatic cancel above a tool-call or time threshold, caps the damage of a loop the model fails to break itself.</p></div>
+
+<div class="item good"><h3>G7. Keep the machine awake and the daemon supervised</h3>
+<p><b>Why:</b> if the laptop sleeps or the daemon stops, nothing runs and an in-flight deploy can be left half-done. Use <code>caffeinate</code> or a launchd service, and an alert when the daemon heartbeat stops.</p></div>
+
+<div class="item good"><h3>G8. A status page</h3>
+<p><b>Why:</b> one HTML page showing open issues by stage, the last deploy (<code>deploy/last.json</code>), the latest test reports and pending lesson proposals would replace several Multica tabs and the log reading done today.</p></div>
+
+<div class="item good"><h3>G9. Housekeeping</h3>
+<p><b>Why:</b> there are about 70 old task workdirs and a growing set of test reports and backups. Prune on a schedule. Also note that <code>jar uf</code> cannot remove classes, and 5 deploy backups is a short horizon for a build that <code>qntrl_run.sh reinit</code> can wipe.</p></div>
+
+<div class="item good"><h3>G10. Curator sweeps and lesson review</h3>
+<p><b>Why:</b> the Curator only looks at issues Classify & Route flags. A weekly sweep of all finished issues would catch problems nobody flagged, and a review of lessons older than a month would retire the ones that no longer apply. Lessons cost context on every run, so the 12-per-section cap should be watched.</p></div>
+
+<div class="item good"><h3>G11. Separate dev servers for CirDoc-P and CirDoc-O</h3>
+<p><b>Why:</b> removes M6 for good and lets two squads run in parallel. It needs a second build directory and different ports, so it is the largest item on this list and only worth it if you run both squads daily.</p></div>
+
+<div class="item good"><h3>G12. Record which build the dev server is running</h3>
+<p><b>Why:</b> after several patched deploys the server differs from any official build. A small file or endpoint listing the patched jars and SHAs would answer "what am I testing?" without reading history.</p></div>
+
+<h2>5. Suggested order</h2>
+<table>
+<tr><th style="width:60px">Step</th><th>What</th><th style="width:220px">Items</th></tr>
+<tr><td>1</td><td>Quick fixes you can do today: rotate the token, env file for secrets, git for the backup, dependency preflight</td><td>M8, M9, M5</td></tr>
+<tr><td>2</td><td>Make the plumbing work before an agent depends on it: runtime permissions (qntrlcore checkout, M2, is already fixed)</td><td>M3</td></tr>
+<tr><td>3</td><td>Supervised proof: deploy and rollback once with you watching, then the first real small issue including the MR on GitLab</td><td>M4, M1, M10</td></tr>
+<tr><td>4</td><td>Close the gaps that real runs expose: dev server reservation, config deploy</td><td>M6, M7</td></tr>
+<tr><td>5</td><td>Then the good-to-have list, starting with notifications and model choice</td><td>G1, G4, G2</td></tr>
+</table>
+
+<div class="note"><b>Update 2026-10-28 (evening):</b> M2 is done: the three colliding qntrlcore branches were deleted and the daemon cache re-cloned. Must-have items remaining: 9 of 10.</div>
+<div class="note"><b>Corrections to earlier statements.</b> I said the approval step of the learning loop was untested. It has since been exercised with your real approval and works. I also said Cursor's shell might block <code>run_test.sh</code>; that is still unconfirmed and is item M3.</div>
+
+<footer>Generated for the CirDoc setup. Source of truth for config: ~/multica-instruction-backup. Scores are my judgement from the evidence listed, not a measurement.</footer>
+</main></body></html>

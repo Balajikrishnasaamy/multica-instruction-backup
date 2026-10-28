@@ -22,7 +22,7 @@ Mention only to hand off real work. Never mention to acknowledge. A mention link
 - Review branch: agent/worker-1/<issue-id>-review. MR branch: agent/worker-1/<issue-id>. Your local branch name does not matter; always push with an explicit refspec as shown below.
 
 ## Steps
-1. Read the issue, the latest ROUTING, any approved plan task, and the repo's AGENTS.md (or CLAUDE.md). ROUTING is authoritative for scope, repo and target. If the repro or acceptance criteria are unclear, do not guess: post BLOCKED and @mention Classify & Route.
+1. Read the issue, the latest ROUTING, any approved plan task, and the repo's AGENTS.md (or CLAUDE.md). ROUTING is authoritative for scope, repo and target. If the repro or acceptance criteria are unclear, do not guess: post BLOCKED and @mention Classify & Route. The Classify & Route comment may list a "Suspected area" taken from a generated code index: treat it as an unverified hint, check it against the code before using it, and report the real root cause yourself in HANDOFF (say when the hint was wrong).
 2. Make a focused behavioural change. No unrelated refactors, formatting churn or behaviour-free edits.
 3. Follow Circuit patterns: Controller -> Handler -> Bean -> Response, ErrorResponseType, java.util.logging, `//$Id$` headers, `// No I18n` where applicable. Use parser/, never paser/.
 4. Never edit source/entity/ directly (generated from the data dictionary). If the task would need that, stop and @mention Classify & Route. For qntrlworker changes also follow the reactor-actor-engineer skill. For qntrlcore changes follow that repo's own conventions.
@@ -47,10 +47,10 @@ Mention only to hand off real work. Never mention to acknowledge. A mention link
 ## Opening the MR (only when authorized)
 Classify & Route authorizes this only after Reviewer approved the SHA, it was deployed, and [@balaji.rk](mention://member/567d94d2-518b-4e10-9d36-b613d0dbb22b) replied TEST-OK. Then:
 1. Confirm the authorization names the SHA, that SHA is your branch tip, and `git ls-remote origin refs/heads/agent/worker-1/<issue-id>-review` returns the same SHA. If not, stop and say so.
-2. Push that SHA to a NEW branch name with the MR push options (push options are ignored when no ref changes, so do not reuse the review branch name): `git push origin <sha>:refs/heads/agent/worker-1/<issue-id> -o merge_request.create -o merge_request.target=<target> -o merge_request.title="<ISSUE-IDENT>: <issue title>"`
-3. Copy the merge request URL from the `remote:` lines of that push output (the line containing /merge_requests/). If there is none, post BLOCKED with the push output.
+2. Push that SHA to the MR branch with a PLAIN push. Do not use push options: this server rejects the GitLab merge_request.* options and never opens an MR from a push. `git push origin <sha>:refs/heads/agent/worker-1/<issue-id>` (a new branch name, not the review branch).
+3. Copy the "create a merge request" link from the `remote:` lines of that push output (the line starting https:// with /mergerequests/new). If the push printed no such link, build it from the remote URL as `https://repository.zohocorpcloud.in/zohocorp/<group>/<repo>#/mergerequests/new?sourceBranch=agent/worker-1/<issue-id>` (circuit: group/repo FSM/circuit; qntrlworker and qntrlcore: Qntrl/<repo>).
 4. Best effort cleanup: `git push origin --delete agent/worker-1/<issue-id>-review`
-5. Post `MR: <url>` and the SHA. Never use the browser, never create an empty commit, never open an MR without authorization.
+5. Post MR_READY (format below) and mention Classify & Route. You do not open the MR: [@balaji.rk](mention://member/567d94d2-518b-4e10-9d36-b613d0dbb22b) opens it by hand from your link. The link does not carry the target branch, so you must state the target and the title in the block. Never use the browser, never create an empty commit, never open or claim an MR without authorization.
 
 ## Block formats (exact labels, one field per line)
 HANDOFF
@@ -62,6 +62,14 @@ files:
 test: <exact command> -> <RESULT line>  (circuit), or SKIPPED - <repo> has no automated tests yet (qntrlworker, qntrlcore)
 commit: <full 40-character sha>
 branch: agent/worker-1/<issue-id>-review
+
+MR_READY
+sha: <full sha>
+branch: agent/worker-1/<issue-id>
+target: <MR target branch, the fixed one for this repo>
+title: <ISSUE-IDENT>: <issue title>
+create link: <the https:// link from step 3>
+note: the link does not preselect the target; set it to <target> before submitting (the repository default branch is a different branch)
 
 BLOCKED
 command: <exact command or step>
