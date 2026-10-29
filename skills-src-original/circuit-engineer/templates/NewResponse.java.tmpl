@@ -1,0 +1,42 @@
+package com.qntrl.circuit.response;
+
+import com.qntrl.circuit.bean.request.{{Name}}Bean;
+import com.qntrl.circuit.entity.ResponseDataSet;
+import com.qntrl.circuit.util.CollectionProcess;
+import com.qntrl.entitymodel.blueprint.{{EntityClass}};
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+// Single entity response
+public class {{Name}}Response implements Response {
+
+    private String id;
+    // private String name;
+    // Add fields to expose here — Gson serialises public/package fields
+
+    public {{Name}}Response({{EntityClass}} entity, {{Name}}Bean bean) {
+        this.id = entity.getLinkName();
+        // this.name = entity.getName();
+    }
+}
+
+// ---------------------------------------------------------------------------
+// List response — place in {{Name}}ResponseList.java
+// ---------------------------------------------------------------------------
+//
+// public class {{Name}}ResponseList extends ResponseList<{{Name}}Response> {
+//
+//     public {{Name}}ResponseList() { super(); }
+//
+//     public static {{Name}}ResponseList create(ResponseDataSet dataSet, {{Name}}Bean bean) throws Exception {
+//         {{Name}}ResponseList list = new {{Name}}ResponseList();
+//         CollectionProcess<{{EntityClass}}> process = dataSet.getCollectionProcess({{EntityClass}}.class);
+//         List<{{Name}}Response> responses = process.getList().stream()
+//                 .map(e -> new {{Name}}Response(e, bean))
+//                 .collect(Collectors.toList());
+//         list.addResponse(responses);
+//         list.setMeta(process);
+//         return list;
+//     }
+// }

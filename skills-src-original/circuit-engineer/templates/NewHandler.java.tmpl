@@ -1,0 +1,53 @@
+package com.qntrl.circuit.handler;
+
+import com.qntrl.circuit.bean.request.{{Name}}Bean;
+import com.qntrl.circuit.bean.transaction.WorkerProcessBean;
+import com.qntrl.circuit.entity.ResponseDataSet;
+import com.qntrl.entitymodel.blueprint.{{EntityClass}};
+
+import java.util.logging.Logger;
+
+public class {{Name}}Handler implements EntityHandler<{{EntityClass}}, {{Name}}Bean> {
+
+  private static final Logger LOGGER = Logger.getLogger({{Name}}Handler.class.getName());
+
+  private static volatile {{Name}}Handler instance;
+
+  private {{Name}}Handler() {}
+
+  public static {{Name}}Handler getInstance() {
+    if (instance == null) {
+      synchronized ({{Name}}Handler.class) {
+        if (instance == null) {
+          instance = new {{Name}}Handler();
+        }
+      }
+    }
+    return instance;
+  }
+
+  @Override
+  public ResponseDataSet getAll({{Name}}Bean bean) throws Exception {
+    return WorkerProcessBean.getInstance().getAll(bean);
+  }
+
+  @Override
+  public {{EntityClass}} create({{Name}}Bean bean) throws Exception {
+    return WorkerProcessBean.getInstance(true).create{{EntityClass}}(bean);
+  }
+
+  @Override
+  public {{EntityClass}} get(String id, {{Name}}Bean bean) throws Exception {
+    return WorkerProcessBean.getInstance().get{{EntityClass}}(id);
+  }
+
+  @Override
+  public {{EntityClass}} update(String id, {{Name}}Bean bean) throws Exception {
+    return WorkerProcessBean.getInstance(true).update{{EntityClass}}(id, bean);
+  }
+
+  @Override
+  public {{EntityClass}} delete(String id, {{Name}}Bean bean) throws Exception {
+    return WorkerProcessBean.getInstance(true).delete{{EntityClass}}(id, bean);
+  }
+}

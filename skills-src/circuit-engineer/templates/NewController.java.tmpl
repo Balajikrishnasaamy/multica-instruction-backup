@@ -1,0 +1,107 @@
+package com.qntrl.circuit.controller;
+
+import com.opensymphony.xwork2.ModelDriven;
+import com.qntrl.circuit.bean.request.{{Name}}Bean;
+import com.qntrl.circuit.bean.request.QntrlRequestController;
+import com.qntrl.circuit.entity.ResponseDataSet;
+import com.qntrl.circuit.exception.QntrlException;
+import com.qntrl.circuit.handler.{{Name}}Handler;
+import com.qntrl.circuit.response.{{Name}}Response;
+import com.qntrl.circuit.response.{{Name}}ResponseList;
+import com.qntrl.circuit.response.ErrorResponse;
+import com.qntrl.entitymodel.blueprint.{{EntityClass}};
+import org.apache.http.HttpStatus;
+
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+public class {{Name}}Controller extends QntrlRequestController implements ModelDriven<{{Name}}Bean>, RequestController {
+
+    private static final Logger LOGGER = Logger.getLogger({{Name}}Controller.class.getName());
+
+    private {{Name}}Bean {{nameLower}}Bean = new {{Name}}Bean();
+
+    @Override
+    public {{Name}}Bean getModel() {
+        return {{nameLower}}Bean;
+    }
+
+    @Override
+    public void index() {
+        try {
+            ResponseDataSet responseDataSet = {{Name}}Handler.getInstance().getAll({{nameLower}}Bean);
+            {{Name}}ResponseList responseList = {{Name}}ResponseList.create(responseDataSet, {{nameLower}}Bean);
+            writeResponse(HttpStatus.SC_OK, responseList);
+
+        } catch (QntrlException ex) {
+            LOGGER.log(Level.SEVERE, "Error fetching all {{Name}}", ex);
+            writeResponse(ErrorResponse.getInstance(ex));
+        } catch (Exception ex) {
+            LOGGER.log(Level.SEVERE, "Server error fetching all {{Name}}", ex);
+            writeResponse(ErrorResponse.getServerError());
+        }
+    }
+
+    @Override
+    public void create() {
+        try {
+            {{EntityClass}} entity = {{Name}}Handler.getInstance().create({{nameLower}}Bean);
+            writeResponse(HttpStatus.SC_CREATED, new {{Name}}Response(entity, {{nameLower}}Bean));
+
+        } catch (QntrlException ex) {
+            LOGGER.log(Level.SEVERE, "Error creating {{Name}}", ex);
+            writeResponse(ErrorResponse.getInstance(ex));
+        } catch (Exception ex) {
+            LOGGER.log(Level.SEVERE, "Server error creating {{Name}}", ex);
+            writeResponse(ErrorResponse.getServerError());
+        }
+    }
+
+    @Override
+    public void show() {
+        try {
+            String id = getEntityId();
+            {{EntityClass}} entity = {{Name}}Handler.getInstance().get(id, {{nameLower}}Bean);
+            writeResponse(HttpStatus.SC_OK, new {{Name}}Response(entity, {{nameLower}}Bean));
+
+        } catch (QntrlException ex) {
+            LOGGER.log(Level.SEVERE, "Error fetching {{Name}}", ex);
+            writeResponse(ErrorResponse.getInstance(ex));
+        } catch (Exception ex) {
+            LOGGER.log(Level.SEVERE, "Server error fetching {{Name}}", ex);
+            writeResponse(ErrorResponse.getServerError());
+        }
+    }
+
+    @Override
+    public void update() {
+        try {
+            String id = getEntityId();
+            {{EntityClass}} entity = {{Name}}Handler.getInstance().update(id, {{nameLower}}Bean);
+            writeResponse(HttpStatus.SC_OK, new {{Name}}Response(entity, {{nameLower}}Bean));
+
+        } catch (QntrlException ex) {
+            LOGGER.log(Level.SEVERE, "Error updating {{Name}}", ex);
+            writeResponse(ErrorResponse.getInstance(ex));
+        } catch (Exception ex) {
+            LOGGER.log(Level.SEVERE, "Server error updating {{Name}}", ex);
+            writeResponse(ErrorResponse.getServerError());
+        }
+    }
+
+    @Override
+    public void destroy() {
+        try {
+            String id = getEntityId();
+            {{EntityClass}} entity = {{Name}}Handler.getInstance().delete(id, {{nameLower}}Bean);
+            writeResponse(HttpStatus.SC_OK, new {{Name}}Response(entity, {{nameLower}}Bean));
+
+        } catch (QntrlException ex) {
+            LOGGER.log(Level.SEVERE, "Error deleting {{Name}}", ex);
+            writeResponse(ErrorResponse.getInstance(ex));
+        } catch (Exception ex) {
+            LOGGER.log(Level.SEVERE, "Server error deleting {{Name}}", ex);
+            writeResponse(ErrorResponse.getServerError());
+        }
+    }
+}

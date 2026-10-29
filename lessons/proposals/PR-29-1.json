@@ -1,0 +1,11 @@
+{
+  "kind": "add",
+  "role": "reviewer",
+  "rule": "If qntrlworker dev compilation cannot resolve LogTypes in unchanged ReactorLogListener.java, report deployment blocked and escalate the dev classpath to balaji.rk; do not request unrelated worker edits or report deployment success.",
+  "why": "qntrlworker dev deployment stopped at compilation with LogTypes unresolved in unchanged ReactorLogListener.java.; The dev compiler could not resolve com.zoho.logs.common.util.LogTypes; the logs depend",
+  "evidence": "[DEPLOY_PROBLEM] Reviewer run e5af628b: \"status\": \"compile_failed\"; LESSON BLOCK comment 50df796a: LogTypes not found in ReactorLogListener, unrelated to the diff.",
+  "issue": "CIRD-29",
+  "id": "PR-29-1",
+  "status": "proposed",
+  "created": "2026-10-29 11:44:53"
+}

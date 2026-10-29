@@ -1,0 +1,46 @@
+package com.qntrl.execution.actor.functional;
+
+import com.qntrl.execution.actor.APIActor;
+import com.qntrl.execution.constant.ActorEvent;
+import com.qntrl.execution.task.functional.{{Name}}Task;
+import com.qntrl.worker.reactor.actors.baseactor.ZRTaskActor;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+public class {{Name}}Actor extends APIActor<{{Name}}Task> {
+
+  private static final Logger LOGGER = Logger.getLogger({{Name}}Actor.class.getName());
+
+  @Override
+  public void execute() throws Exception {
+    {{Name}}Task task = getTask();
+
+    Map<String, String> substituteMap = new HashMap<>();
+    // substituteMap.put("key", task.getKey());
+
+    try {
+      // TODO: implement execution logic
+      // prepareAndPushLog(ActorEvent.XXX_TRIGGERED, substituteMap);
+
+      // apiResponse = ...;
+      // response = ...;
+
+      // getLocal().getIOEntity().setResult(response.toString());
+      // prepareAndPushLog(ActorEvent.XXX_EXECUTED, substituteMap, apiResponse);
+
+    } catch (Exception ex) {
+      // errorResponse = response = ex.getData();  // if ApiException
+      // substituteMap.put("errorMessage", ex.getMessage());
+      // prepareAndPushLog(ActorEvent.XXX_FAILED, substituteMap, errorResponse);
+      throw ex;
+    }
+  }
+
+  @Override
+  public Class<? extends ZRTaskActor> getActorClass() {
+    return getClass();
+  }
+}

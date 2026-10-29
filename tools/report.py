@@ -41,10 +41,16 @@ for line in read(tsv).splitlines():
     p = line.split("\t")
     if len(p) < 5:
         continue
-    p += [""] * (7 - len(p))
+    p += [""] * (10 - len(p))
+    ents = []
+    for item in unesc(p[7]).split("\x02"):
+        if "\x01" in item:
+            k, v = item.split("\x01", 1)
+            ents.append((k, v))
     rows.append({
         "cls": unesc(p[0]), "method": unesc(p[1]), "display": unesc(p[2]), "status": p[3],
         "ms": int(p[4] or 0), "msg": unesc(p[5]), "trace": unesc(p[6]),
+        "entries": ents, "expected": unesc(p[8]), "actual": unesc(p[9]),
     })
 
 counts = {k: sum(1 for r in rows if r["status"] == k) for k in ("PASSED", "FAILED", "SKIPPED", "ABORTED")}
@@ -61,6 +67,30 @@ e = html.escape
 def badge(s):
     c = {"PASSED": "#1a7f37", "FAILED": "#cf222e", "SKIPPED": "#6e7781", "ABORTED": "#9a6700"}[s]
     return f'<span class="b" style="background:{c}">{s}</span>'
+
+
+LABELS = {"input": "Input", "output": "Output (got)", "expected": "Expected", "actual": "Actual", "note": "Note"}
+
+
+def io_block(r, failed):
+    """Input / output / expected for one test. Published entries come first, in the order the test wrote them;
+    on failure the assertion's own expected/actual values are added when the test did not publish them."""
+    items = [(k, v) for k, v in r["entries"]]
+    have = {k.lower() for k, _ in items}
+    if failed:
+        if r["expected"] and "expected" not in have:
+            items.append(("expected", r["expected"]))
+        if r["actual"] and not ({"output", "actual"} & have):
+            items.append(("actual", r["actual"]))
+    if not items:
+        return ""
+    out = ['<table class="io">']
+    for k, v in items:
+        lab = LABELS.get(k.lower(), k)
+        cls = {"expected": "exp", "output": "got", "actual": "got"}.get(k.lower(), "")
+        out.append(f'<tr class="{cls}"><td>{e(lab)}</td><td><pre>{e(mask(v))}</pre></td></tr>')
+    out.append("</table>")
+    return "".join(out)
 
 
 parts = []
@@ -84,6 +114,11 @@ details{{background:#fff;border:1px solid #d0d7de;border-radius:8px;margin:6px 0
 summary{{cursor:pointer}} .ms{{color:#656d76;font-size:12px}} .fail summary{{color:#cf222e}}
 code{{font-family:ui-monospace,Menlo,monospace;font-size:12px}}
 .filter{{margin:8px 0}} .filter label{{margin-right:14px;cursor:pointer}}
+table.io{{margin:6px 0 4px 0;border:1px solid #d0d7de}} table.io td{{padding:4px 10px;border-bottom:1px solid #eaeef2}}
+table.io td:first-child{{width:110px;color:#656d76;font-size:12px;text-transform:uppercase;white-space:nowrap}}
+table.io pre{{margin:0;padding:6px 8px;background:#f6f8fa;color:#1f2328;border-radius:4px}}
+table.io tr.exp pre{{background:#dafbe1}} table.io tr.got pre{{background:#fff1f0}}
+.io-row td{{background:#fbfcfd}}
 footer{{color:#656d76;font-size:12px;margin-top:30px}}
 </style></head><body>
 <header><h1>{e(status)} &mdash; {e(meta['summary'])}</h1>
@@ -120,7 +155,7 @@ if rows:
         for r in failed:
             name = r["method"] or r["display"]
             parts.append(f'<details class="fail" open><summary>{badge(r["status"])} <b>{e(r["cls"])}</b>#{e(name)} <span class="ms">{r["ms"]} ms</span></summary>'
-                         f'<pre>{e(mask(r["trace"] or r["msg"]))}</pre></details>')
+                         f'{io_block(r, True)}<pre>{e(mask(r["trace"] or r["msg"]))}</pre></details>')
 
     parts.append('<h2>All tests</h2><div class="filter">'
                  '<label><input type="checkbox" id="onlyfail"> show only failed / skipped</label></div>')
@@ -131,6 +166,9 @@ if rows:
             name = r["method"] or r["display"]
             disp = f' <span class="ms">{e(r["display"])}</span>' if r["display"] and r["display"] != name + "()" and r["display"] != name else ""
             parts.append(f'<tr class="row {r["status"]}"><td>{badge(r["status"])}</td><td><code>{e(name)}</code>{disp}</td><td class="ms">{r["ms"]} ms</td><td>{e(mask(r["msg"]))[:300]}</td></tr>')
+            blk = io_block(r, r["status"] in ("FAILED", "ABORTED"))
+            if blk:
+                parts.append(f'<tr class="row {r["status"]} io-row"><td></td><td colspan="3">{blk}</td></tr>')
         parts.append("</table>")
     parts.append("""<script>document.getElementById('onlyfail').addEventListener('change',function(){
 document.querySelectorAll('tr.row.PASSED').forEach(function(r){r.style.display=this.checked?'none':''}.bind(this))})</script>""")

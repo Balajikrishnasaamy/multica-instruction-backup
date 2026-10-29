@@ -5,8 +5,12 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import org.junit.platform.engine.reporting.ReportEntry;
+import org.opentest4j.AssertionFailedError;
 import org.junit.platform.engine.TestExecutionResult;
 import org.junit.platform.engine.support.descriptor.ClassSource;
 import org.junit.platform.engine.support.descriptor.MethodSource;
@@ -25,8 +29,10 @@ import static org.junit.platform.engine.discovery.DiscoverySelectors.selectMetho
 /**
  * Minimal JUnit 5 console runner used by run_test.sh.
  * Args: fully.qualified.Class or fully.qualified.Class#method
- * -Drunner.out=<file> writes one TSV record per test: class, method, display, status, millis, message, stacktrace
- * (tabs/newlines/backslashes escaped as \t \n \\).
+ * -Drunner.out=<file> writes one TSV record per test: class, method, display, status, millis, message, stacktrace,
+ * entries, expected, actual (tabs/newlines/backslashes escaped as \t \n \\).
+ * entries = what the test published with TestReporter.publishEntry(key, value) (convention: input, output, expected),
+ * as key \u0001 value pairs joined by \u0002. expected/actual come from a failed assertion (assertEquals etc.).
  */
 public class Runner {
 	static String esc(String s) {
@@ -37,9 +43,16 @@ public class Runner {
 	static class Recorder implements TestExecutionListener {
 		final BufferedWriter out;
 		final Map<String, Long> started = new HashMap<>();
+		final Map<String, List<String>> entries = new HashMap<>();
 		Recorder(BufferedWriter out) { this.out = out; }
 
-		@Override public void executionSkipped(TestIdentifier id, String reason) { write(id, "SKIPPED", 0, reason, null); }
+		@Override public void reportingEntryPublished(TestIdentifier id, ReportEntry entry) {
+			List<String> l = entries.computeIfAbsent(id.getUniqueId(), k -> new ArrayList<>());
+			for (Map.Entry<String, String> e : entry.getKeyValuePairs().entrySet())
+				l.add(e.getKey() + "\u0001" + e.getValue());
+		}
+
+		@Override public void executionSkipped(TestIdentifier id, String reason) { write(id, "SKIPPED", 0, reason, null, null, null, null); }
 		@Override public void executionStarted(TestIdentifier id) { started.put(id.getUniqueId(), System.nanoTime()); }
 		@Override public void executionFinished(TestIdentifier id, TestExecutionResult r) {
 			Long t0 = started.get(id.getUniqueId());
@@ -52,18 +65,27 @@ public class Runner {
 			}
 			// A passing container is not interesting; a failing one (e.g. @BeforeAll, class init) must be shown.
 			if (!id.isTest() && r.getStatus() == TestExecutionResult.Status.SUCCESSFUL) return;
-			String msg = null, trace = null;
+			String msg = null, trace = null, expected = null, actual = null;
 			if (r.getThrowable().isPresent()) {
 				Throwable th = r.getThrowable().get();
+				for (Throwable c = th; c != null; c = c.getCause() == c ? null : c.getCause()) {
+					if (c instanceof AssertionFailedError) {
+						AssertionFailedError af = (AssertionFailedError) c;
+						if (af.isExpectedDefined()) expected = af.getExpected().getStringRepresentation();
+						if (af.isActualDefined()) actual = af.getActual().getStringRepresentation();
+						break;
+					}
+				}
 				msg = th.getClass().getName() + (th.getMessage() == null ? "" : ": " + th.getMessage());
 				StringWriter sw = new StringWriter();
 				th.printStackTrace(new PrintWriter(sw));
 				trace = sw.toString();
 			}
-			write(id, status, ms, msg, trace);
+			List<String> ent = entries.remove(id.getUniqueId());
+			write(id, status, ms, msg, trace, ent == null ? null : String.join("\u0002", ent), expected, actual);
 		}
 
-		synchronized void write(TestIdentifier id, String status, long ms, String msg, String trace) {
+		synchronized void write(TestIdentifier id, String status, long ms, String msg, String trace, String ent, String expected, String actual) {
 			String cls = "", method = "";
 			if (id.getSource().isPresent()) {
 				if (id.getSource().get() instanceof MethodSource) {
@@ -75,7 +97,7 @@ public class Runner {
 			}
 			if (!id.isTest() && "SKIPPED".equals(status) && method.isEmpty()) method = "(whole class)";
 			try {
-				out.write(String.join("\t", esc(cls), esc(method), esc(id.getDisplayName()), status, Long.toString(ms), esc(msg), esc(trace)));
+				out.write(String.join("\t", esc(cls), esc(method), esc(id.getDisplayName()), status, Long.toString(ms), esc(msg), esc(trace), esc(ent), esc(expected), esc(actual)));
 				out.write("\n");
 				out.flush();
 			} catch (Exception e) { throw new RuntimeException(e); }

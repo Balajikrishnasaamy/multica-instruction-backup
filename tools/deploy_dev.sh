@@ -205,11 +205,30 @@ fi
 # ---------- compile ----------
 OUT=$TMP/classes; mkdir -p "$OUT"
 CP=$(find "$SAS/lib" "$SAS/tomcat/lib" "$LIB" -name '*.jar' | tr '\n' ':')
+# Compile-only shims (LAST on the classpath, so real jars win; never deployed). qntrlworker source still imports
+# com.zoho.logs.common.util.LogTypes, which the current logagent.jar moved to ...logclient.util. Its constants are
+# static final Strings (inlined by javac), so the compiled classes carry no runtime reference; checked after javac.
+COMPAT_JAR=$STATE/compat/logagent-compat.jar
+[ "$REPO" = qntrlworker ] && [ -f "$COMPAT_JAR" ] && CP="$CP$COMPAT_JAR:"
 ( cd "$TREE" && find $SRC_DIRS -name '*.java' ) > "$TMP/sources"
 log "javac $(wc -l < "$TMP/sources" | tr -d ' ') files"
 if ! ( cd "$TREE" && javac -nowarn -encoding UTF-8 --release 17 -proc:none -cp "$CP" -d "$OUT" @"$TMP/sources" ) > "$TMP/javac.log" 2>&1; then
 	grep -v '^Note:' "$TMP/javac.log" | head -60
 	write_report compile_failed "javac failed; first errors printed above"; exit 1
+fi
+
+# Guard: no class may USE the compat-only LogTypes in bytecode (getstatic/invoke/new/checkcast...). javac inlines the
+# String constants, leaving only an unused constant-pool entry, which the JVM never resolves. Real uses would fail at runtime.
+if [ "$REPO" = qntrlworker ] && [ -f "$COMPAT_JAR" ]; then
+	bad=""
+	while IFS= read -r c; do
+		cn=$(echo "${c#./}" | sed 's#\.class$##; s#/#.#g')
+		javap -c -p -cp "$OUT" "$cn" 2>/dev/null | grep -q 'com/zoho/logs/common/util/LogTypes' && bad="$bad $cn"
+	done < <(cd "$OUT" && grep -rl 'com/zoho/logs/common/util/LogTypes' . 2>/dev/null)
+	if [ -n "$bad" ]; then
+		echo "ERROR: classes use compat-only com.zoho.logs.common.util.LogTypes in bytecode (would fail at runtime):$bad"
+		write_report compile_failed "compiled classes depend on a class missing from the server's logagent.jar"; exit 1
+	fi
 fi
 
 # ActiveJDBC models must be bytecode-instrumented after compile (same step as the Ant build).

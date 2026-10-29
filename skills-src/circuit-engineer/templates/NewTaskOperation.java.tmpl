@@ -1,0 +1,48 @@
+package com.qntrl.execution.constant;
+
+import com.google.gson.JsonElement;
+import com.qntrl.circuit.bean.request.TaskBean;
+import com.qntrl.circuit.constant.TaskModule;
+import com.qntrl.circuit.context.IOContext;
+import com.qntrl.circuit.response.LookupResponse;
+import com.qntrl.circuit.util.CollectionProcess;
+import com.qntrl.execution.task.functional.TaskTask;
+
+@TaskOperationRegistry
+public enum {{Name}}TaskOperation implements TaskOperation {
+
+    OPERATION_ONE("operation_one") {
+        @Override
+        public JsonElement execute(TaskTask task, IOContext context, IOContext processContext) throws Exception {
+            return {{Name}}Handler.getInstance().operationOne(context);
+        }
+    },
+
+    OPERATION_TWO("operation_two") {
+        @Override
+        public JsonElement execute(TaskTask task, IOContext context, IOContext processContext) throws Exception {
+            return {{Name}}Handler.getInstance().operationTwo(context);
+        }
+    };
+
+    private final String taskId;
+
+    {{Name}}TaskOperation(String taskId) {
+        this.taskId = taskId;
+    }
+
+    @Override
+    public TaskModule getModule() {
+        return TaskModule.{{MODULE}};  // add to TaskModule enum if new
+    }
+
+    @Override
+    public String getTaskId() {
+        return taskId;
+    }
+
+    @Override
+    public CollectionProcess<LookupResponse> lookup(TaskTask task, String field, TaskBean taskBean) throws Exception {
+        return null;
+    }
+}

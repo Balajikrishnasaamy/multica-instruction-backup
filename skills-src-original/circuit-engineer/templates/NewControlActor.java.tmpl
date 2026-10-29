@@ -1,0 +1,115 @@
+// Template: Control Actor (SystemActor subclass)
+// Use for: BRANCH, PARALLEL, BATCH, WAIT, SEQUENTIAL, and any new flow-control task type
+// Replace: XxxActor → your actor name, XxxTask → your task name
+// Based on: BranchActor.java
+
+package com.qntrl.execution.actor.control;
+
+import akka.actor.AbstractActor;
+import com.qntrl.circuit.util.QntrlVariableUtil;
+import com.qntrl.execution.handler.ActorHandleable;
+import com.qntrl.execution.handler.ExecutorHandler;
+import com.qntrl.execution.handler.GetTask;
+import com.qntrl.execution.process.Process;
+import com.qntrl.execution.task.control.XxxTask;
+import com.qntrl.store.entity.EventLogInfo;
+import com.qntrl.worker.reactor.actors.actordata.ActorData;
+import com.qntrl.worker.reactor.actors.baseactor.SystemActor;
+import com.qntrl.worker.reactor.actors.baseactor.ZRTaskActor;
+import com.qntrl.worker.reactor.config.ActorStatus;
+import com.qntrl.worker.reactor.entity.ActorBundle;
+import com.qntrl.worker.reactor.entity.ZRMessage;
+import com.qntrl.worker.reactor.util.ReactorConstants;
+import org.apache.commons.lang3.Strings;
+
+import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+public class XxxActor extends SystemActor implements ActorHandleable, GetTask<XxxTask> {
+
+    private static final Logger LOGGER = Logger.getLogger(XxxActor.class.getName());
+
+    private ExecutorHandler handler;
+    private Map<String, String> variableMap;
+
+    // createReceive MUST match this exact pattern — all control actors use the same three message types
+    @Override
+    public AbstractActor.Receive createReceive() {
+        return receiveBuilder()
+            .match(ActorBundle.class, this::recoverActorState)
+            .match(ZRMessage.class, m -> Strings.CS.equals(m.getType(), ReactorConstants.BOOT), this::handleBoot)
+            .match(ZRMessage.class, m -> Strings.CS.equals(m.getType(), ReactorConstants.ABORT_RECOVER), this::recoverForAbort)
+            .build();
+    }
+
+    // onActorEnter is called once when the actor first activates.
+    // Always: build ExecutorHandler, resolve variables, init log client.
+    @Override
+    public void onActorEnter() throws Exception {
+        Process process = (Process) getGlobal().getProcess();
+        this.handler = new ExecutorHandler(process, getStateEntity());
+        this.variableMap = QntrlVariableUtil.getVariables(process.getScopeId(), getFSMTask().getVariables());
+        initLogClientThreadLocal();
+    }
+
+    @Override
+    public void execute() {
+        try {
+            // --- YOUR LOGIC HERE ---
+            // Access task config:        XxxTask task = getTask();
+            // Access current input:      String input = (String) getLocal().getIOEntity().getInput();
+            // Access process context:    handler.getProcessContext(getTask())
+            // Resolve variables:         use variableMap with QntrlSubstitutor
+
+            // Signal outcomes:
+            // persistAndProcessStatus(ActorStatus.SUCCESS);          // normal completion
+            // persistAndProcessStatus(ActorStatus.FAILURE);          // error (set this.actorExp first)
+            // persistAndProcessStatus(ActorStatus.CHANGE_FLOW);      // branch changed next task (set getActorData().setChangeTask(...) first)
+            // persistAndProcessStatus(ActorStatus.RESPONSE_WAITING); // async, waiting for callback
+
+            persistAndProcessStatus(ActorStatus.SUCCESS);
+
+        } catch (Exception ex) {
+            LOGGER.log(Level.SEVERE, getLoggerMessage("[XXX][FAILURE] Unexpected error"), ex);
+            this.actorExp = ex;
+            this.persistAndProcessStatus(ActorStatus.FAILURE);
+        }
+    }
+
+    @Override
+    protected ActorData initializeActorData() {
+        return new ActorData();
+    }
+
+    // Both initActor (first run) and recoverActor (resume after crash) delegate to execute()
+    @Override
+    protected void initActor() {
+        execute();
+    }
+
+    @Override
+    protected void recoverActor() {
+        execute();
+    }
+
+    @Override
+    public ExecutorHandler getHandler() {
+        return handler;
+    }
+
+    @Override
+    public Map<String, String> getVariableMap() {
+        return variableMap;
+    }
+
+    @Override
+    public Class<? extends ZRTaskActor> getActorClass() {
+        return getClass();
+    }
+
+    @Override
+    public EventLogInfo getEventLogInfo() {
+        return getTask().createEventLogInfo();
+    }
+}

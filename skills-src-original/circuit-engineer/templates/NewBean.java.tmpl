@@ -1,0 +1,67 @@
+// Template: Request Bean
+// Use for: new controller's ModelDriven model — holds request parameters deserialized by Struts2
+// Replace: XxxBean → your bean name, ResourceType.XXX → your resource type (or remove ResourceBean if not a resource)
+// Based on: CircuitBean.java
+
+package com.qntrl.circuit.bean.request;
+
+import org.apache.commons.lang3.BooleanUtils;
+import org.apache.commons.lang3.StringUtils;
+
+// Extend ResourceBean if this entity is a first-class resource (has workspace, name, status, etc.)
+// Extend EntityBean if it needs pagination/search/sort but is not a resource.
+// Extend DefaultBean for simple request models with no base fields needed.
+public class XxxBean extends ResourceBean {
+
+    // String fields from HTTP params are set by Struts2 via setters — always String input, parse in setter.
+    private String myField;
+    private Boolean myFlag;
+
+    // Search/filter params (optional — add if the index() method needs them)
+    private String search;
+    private String status;
+
+    public XxxBean() {
+        // Pass the ResourceType that identifies this entity type.
+        // If not a resource, call super() or remove ResourceBean entirely.
+        super(ResourceType.XXX);
+    }
+
+    public String getMyField() {
+        return myField;
+    }
+
+    public void setMyField(String myField) {
+        this.myField = myField;
+    }
+
+    public Boolean getMyFlag() {
+        return myFlag;
+    }
+
+    // Boolean request params come in as "true"/"false" strings — use BooleanUtils.toBoolean
+    public void setMyFlag(String myFlag) {
+        this.myFlag = BooleanUtils.toBoolean(myFlag);
+    }
+
+    public String getSearch() {
+        return search;
+    }
+
+    public void setSearch(String search) {
+        this.search = search;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
+    }
+
+    // Utility predicates used in handlers:
+    public boolean hasSearch() {
+        return StringUtils.isNotEmpty(search);
+    }
+}

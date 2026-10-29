@@ -1,0 +1,66 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<title>Test report: FAIL - circuit nosha</title>
+<style>
+body{font:14px/1.5 -apple-system,Segoe UI,Helvetica,Arial,sans-serif;margin:0;background:#f6f8fa;color:#1f2328}
+header{background:#cf222e;color:#fff;padding:18px 28px}
+header h1{margin:0;font-size:22px} header .sub{opacity:.9;margin-top:4px}
+main{max-width:1100px;margin:0 auto;padding:20px 28px 60px}
+.cards{display:flex;gap:12px;flex-wrap:wrap;margin:16px 0}
+.card{background:#fff;border:1px solid #d0d7de;border-radius:8px;padding:10px 18px;min-width:90px;text-align:center}
+.card .n{font-size:26px;font-weight:600} .card .l{color:#656d76;font-size:12px;text-transform:uppercase}
+table{border-collapse:collapse;width:100%;background:#fff;border:1px solid #d0d7de;border-radius:8px;overflow:hidden}
+th,td{text-align:left;padding:7px 12px;border-bottom:1px solid #eaeef2;vertical-align:top} th{background:#f6f8fa;font-size:12px;color:#656d76;text-transform:uppercase}
+.meta td:first-child{width:150px;color:#656d76}
+.b{color:#fff;border-radius:10px;padding:1px 9px;font-size:11px;font-weight:600}
+h2{margin:28px 0 8px;font-size:16px} h3{margin:18px 0 6px;font-size:14px;font-family:ui-monospace,Menlo,monospace}
+pre{background:#0d1117;color:#e6edf3;padding:12px 14px;border-radius:8px;overflow:auto;font:12px/1.45 ui-monospace,Menlo,monospace;white-space:pre-wrap;word-break:break-word;margin:6px 0}
+details{background:#fff;border:1px solid #d0d7de;border-radius:8px;margin:6px 0;padding:6px 12px}
+summary{cursor:pointer} .ms{color:#656d76;font-size:12px} .fail summary{color:#cf222e}
+code{font-family:ui-monospace,Menlo,monospace;font-size:12px}
+.filter{margin:8px 0} .filter label{margin-right:14px;cursor:pointer}
+table.io{margin:6px 0 4px 0;border:1px solid #d0d7de} table.io td{padding:4px 10px;border-bottom:1px solid #eaeef2}
+table.io td:first-child{width:110px;color:#656d76;font-size:12px;text-transform:uppercase;white-space:nowrap}
+table.io pre{margin:0;padding:6px 8px;background:#f6f8fa;color:#1f2328;border-radius:4px}
+table.io tr.exp pre{background:#dafbe1} table.io tr.got pre{background:#fff1f0}
+.io-row td{background:#fbfcfd}
+footer{color:#656d76;font-size:12px;margin-top:30px}
+</style></head><body>
+<header><h1>FAIL &mdash; 1 of 4 tests</h1>
+<div class="sub">circuit @ nosha &middot; 2026-10-29 01:08:57 &middot; 5s</div></header>
+<main><div class="cards"><div class="card"><div class="n" style="color:#1f2328">4</div><div class="l">Tests</div></div><div class="card"><div class="n" style="color:#1a7f37">3</div><div class="l">Passed</div></div><div class="card"><div class="n" style="color:#cf222e">1</div><div class="l">Failed</div></div><div class="card"><div class="n" style="color:#1f2328">0</div><div class="l">Skipped</div></div></div><h2>Run details</h2><table class="meta"><tr><td>Repository</td><td><code>circuit</code></td></tr><tr><td>Commit</td><td><code>nosha</code></td></tr><tr><td>Branch</td><td><code>-</code></td></tr><tr><td>Checkout</td><td><code>/var/folders/sc/bl28l7dj1b551jtwmk_fmvbc0000gp/T/opencode/io/srcS</code></td></tr><tr><td>Test classes</td><td><code>com.qntrl.circuit.util.DynamicComparatorSampleTest</code></td></tr><tr><td>Command</td><td><code>run_test.sh --repo circuit --src /var/folders/sc/bl28l7dj1b551jtwmk_fmvbc0000gp/T/opencode/io/srcS --class com.qntrl.circuit.util.DynamicComparatorSampleTest</code></td></tr><tr><td>Java</td><td><code>openjdk version &quot;17.0.20.1&quot; 2026-08-18</code></td></tr><tr><td>Started</td><td><code>2026-10-29 01:08:57</code></td></tr><tr><td>Duration</td><td><code>5s</code></td></tr></table><h2>Failures (1)</h2><details class="fail" open><summary><span class="b" style="background:#cf222e">FAILED</span> <b>com.qntrl.circuit.util.DynamicComparatorSampleTest</b>#sample_failure <span class="ms">2 ms</span></summary><table class="io"><tr class=""><td>Input</td><td><pre>sort ascending by name: [b, null, a]</pre></td></tr><tr class="got"><td>Output (got)</td><td><pre>[a, b, null]</pre></td></tr><tr class="exp"><td>Expected</td><td><pre>[null, a, b]   (wrong on purpose: missing values must be last)</pre></td></tr></table><pre>org.opentest4j.AssertionFailedError: expected: &lt;[null, a, b]&gt; but was: &lt;[a, b, null]&gt;
+	at org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:151)
+	at org.junit.jupiter.api.AssertionFailureBuilder.buildAndThrow(AssertionFailureBuilder.java:132)
+	at org.junit.jupiter.api.AssertEquals.failNotEqual(AssertEquals.java:197)
+	at org.junit.jupiter.api.AssertEquals.assertEquals(AssertEquals.java:182)
+	at org.junit.jupiter.api.AssertEquals.assertEquals(AssertEquals.java:177)
+	at org.junit.jupiter.api.Assertions.assertEquals(Assertions.java:1145)
+	at com.qntrl.circuit.util.DynamicComparatorSampleTest.sample_failure(DynamicComparatorSampleTest.java:72)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:569)
+	at java.base/java.util.concurrent.ForkJoinTask.doExec(ForkJoinTask.java:373)
+	at java.base/java.util.concurrent.ForkJoinPool$WorkQueue.topLevelExec(ForkJoinPool.java:1182)
+	at java.base/java.util.concurrent.ForkJoinPool.scan(ForkJoinPool.java:1655)
+	at java.base/java.util.concurrent.ForkJoinPool.runWorker(ForkJoinPool.java:1622)
+	at java.base/java.util.concurrent.ForkJoinWorkerThread.run(ForkJoinWorkerThread.java:165)
+</pre></details><h2>All tests</h2><div class="filter"><label><input type="checkbox" id="onlyfail"> show only failed / skipped</label></div><h3>com.qntrl.circuit.util.DynamicComparatorSampleTest &mdash; 3/4 passed</h3><table><tr><th style='width:90px'>Status</th><th>Test</th><th style='width:80px'>Time</th><th>Message</th></tr><tr class="row FAILED"><td><span class="b" style="background:#cf222e">FAILED</span></td><td><code>sample_failure</code> <span class="ms">SAMPLE FAILURE: wrong expectation on purpose, to show the failure layout</span></td><td class="ms">2 ms</td><td>org.opentest4j.AssertionFailedError: expected: &lt;[null, a, b]&gt; but was: &lt;[a, b, null]&gt;</td></tr><tr class="row FAILED io-row"><td></td><td colspan="3"><table class="io"><tr class=""><td>Input</td><td><pre>sort ascending by name: [b, null, a]</pre></td></tr><tr class="got"><td>Output (got)</td><td><pre>[a, b, null]</pre></td></tr><tr class="exp"><td>Expected</td><td><pre>[null, a, b]   (wrong on purpose: missing values must be last)</pre></td></tr></table></td></tr><tr class="row PASSED"><td><span class="b" style="background:#1a7f37">PASSED</span></td><td><code>all_values_present_unchanged</code> <span class="ms">all values present are sorted as before</span></td><td class="ms">33 ms</td><td></td></tr><tr class="row PASSED io-row"><td></td><td colspan="3"><table class="io"><tr class=""><td>Input</td><td><pre>sort ascending by name: [b, c, a]</pre></td></tr><tr class="got"><td>Output (got)</td><td><pre>[a, b, c]</pre></td></tr><tr class="exp"><td>Expected</td><td><pre>[a, b, c]</pre></td></tr></table></td></tr><tr class="row PASSED"><td><span class="b" style="background:#1a7f37">PASSED</span></td><td><code>ascending_puts_missing_values_last</code> <span class="ms">ascending puts missing values last</span></td><td class="ms">0 ms</td><td></td></tr><tr class="row PASSED io-row"><td></td><td colspan="3"><table class="io"><tr class=""><td>Input</td><td><pre>sort ascending by name: [null, c, a, null, b]</pre></td></tr><tr class="got"><td>Output (got)</td><td><pre>[a, b, c, null, null]</pre></td></tr><tr class="exp"><td>Expected</td><td><pre>[a, b, c, null, null]</pre></td></tr></table></td></tr><tr class="row PASSED"><td><span class="b" style="background:#1a7f37">PASSED</span></td><td><code>descending_puts_missing_values_last</code> <span class="ms">descending puts missing values last</span></td><td class="ms">0 ms</td><td></td></tr><tr class="row PASSED io-row"><td></td><td colspan="3"><table class="io"><tr class=""><td>Input</td><td><pre>sort descending by name: [null, a, c, null, b]</pre></td></tr><tr class="got"><td>Output (got)</td><td><pre>[c, b, a, null, null]</pre></td></tr><tr class="exp"><td>Expected</td><td><pre>[c, b, a, null, null]</pre></td></tr></table></td></tr></table><script>document.getElementById('onlyfail').addEventListener('change',function(){
+document.querySelectorAll('tr.row.PASSED').forEach(function(r){r.style.display=this.checked?'none':''}.bind(this))})</script><h2>Console output</h2><details><summary>show (22 lines)</summary><pre>log4j:WARN No appenders could be found for logger (org.apache.commons.beanutils.converters.BooleanConverter).
+log4j:WARN Please initialize the log4j system properly.
+log4j:WARN See http://logging.apache.org/log4j/1.2/faq.html#noconfig for more info.
+
+Failures (1):
+  JUnit Jupiter:DynamicComparatorSampleTest:SAMPLE FAILURE: wrong expectation on purpose, to show the failure layout
+    MethodSource [className = &#x27;com.qntrl.circuit.util.DynamicComparatorSampleTest&#x27;, methodName = &#x27;sample_failure&#x27;, methodParameterTypes = &#x27;org.junit.jupiter.api.TestReporter&#x27;]
+    =&gt; org.opentest4j.AssertionFailedError: expected: &lt;[null, a, b]&gt; but was: &lt;[a, b, null]&gt;
+       org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:151)
+       org.junit.jupiter.api.AssertionFailureBuilder.buildAndThrow(AssertionFailureBuilder.java:132)
+       org.junit.jupiter.api.AssertEquals.failNotEqual(AssertEquals.java:197)
+       org.junit.jupiter.api.AssertEquals.assertEquals(AssertEquals.java:182)
+       org.junit.jupiter.api.AssertEquals.assertEquals(AssertEquals.java:177)
+       org.junit.jupiter.api.Assertions.assertEquals(Assertions.java:1145)
+       com.qntrl.circuit.util.DynamicComparatorSampleTest.sample_failure(DynamicComparatorSampleTest.java:72)
+       java.base/java.lang.reflect.Method.invoke(Method.java:569)
+       java.base/java.util.concurrent.ForkJoinTask.doExec(ForkJoinTask.java:373)
+       java.base/java.util.concurrent.ForkJoinPool$WorkQueue.topLevelExec(ForkJoinPool.java:1182)
+       java.base/java.util.concurrent.ForkJoinPool.scan(ForkJoinPool.java:1655)
+       java.base/java.util.concurrent.ForkJoinPool.runWorker(ForkJoinPool.java:1622)
+       java.base/java.util.concurrent.ForkJoinWorkerThread.run(ForkJoinWorkerThread.java:165)
+RESULT found=4 passed=3 failed=1 skipped=0 aborted=0 containers_failed=0</pre></details><footer>Generated by run_test.sh &middot; secrets in output are masked</footer></main></body></html>

@@ -1,0 +1,92 @@
+//$Id$
+package com.qntrl.execution.task.control;
+
+import com.qntrl.execution.constant.TaskType;
+import com.qntrl.execution.exception.StateErrorHandler;
+import com.qntrl.execution.task.QCTask;
+import com.qntrl.store.entity.EventLogInfo;
+import com.qntrl.worker.reactor.tasks.ZRTask;
+import org.apache.commons.lang3.BooleanUtils;
+
+import java.util.Map;
+import java.util.Set;
+
+public class {{Name}}Task extends ZRTask<StateErrorHandler> implements QCTask {
+
+  private Set<String> variables;
+  private Long stateId;
+
+  private String inputPath;
+  private Map<String, String> resultSelector;
+  private String resultPath;
+  private String outputPath;
+
+  private Boolean eventLog = true;
+  private Boolean bindTask = false;
+
+  public {{Name}}Task(String name) {
+    super(name, TaskType.{{TASK_TYPE}}.getName());
+  }
+
+  @Override
+  public TaskType getTaskType() {
+    return TaskType.getValueOf(getType());
+  }
+
+  @Override
+  public void setStateId(Long stateId) { this.stateId = stateId; }
+
+  @Override
+  public Long getStateId() { return stateId; }
+
+  @Override
+  public Set<String> getVariables() { return variables; }
+
+  @Override
+  public void setVariables(Set<String> variables) { this.variables = variables; }
+
+  @Override
+  public String getInputPath() { return inputPath; }
+
+  @Override
+  public void setInputPath(String inputPath) { this.inputPath = inputPath; }
+
+  @Override
+  public Map<String, String> getResultSelector() { return resultSelector; }
+
+  @Override
+  public void setResultSelector(Map<String, String> resultSelector) { this.resultSelector = resultSelector; }
+
+  @Override
+  public String getResultPath() { return resultPath; }
+
+  @Override
+  public void setResultPath(String resultPath) { this.resultPath = resultPath; }
+
+  @Override
+  public String getOutputPath() { return outputPath; }
+
+  @Override
+  public void setOutputPath(String outputPath) { this.outputPath = outputPath; }
+
+  @Override
+  public Boolean needToPushEventLog() {
+    return BooleanUtils.toBooleanDefaultIfNull(this.eventLog, true);
+  }
+
+  @Override
+  public void disableEventLog() { this.eventLog = false; }
+
+  @Override
+  public Boolean isBindTask() {
+    return BooleanUtils.toBooleanDefaultIfNull(this.bindTask, false);
+  }
+
+  @Override
+  public void makeBindTask() { this.bindTask = true; }
+
+  @Override
+  public EventLogInfo createEventLogInfo() {
+    return new EventLogInfo();
+  }
+}

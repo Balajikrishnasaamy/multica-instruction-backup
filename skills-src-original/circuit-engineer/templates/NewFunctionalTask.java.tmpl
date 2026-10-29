@@ -1,0 +1,16 @@
+package com.qntrl.execution.task.functional;
+
+import com.qntrl.execution.constant.TaskType;
+
+public class {{Name}}Task extends CustomResourceTask {
+
+  // Add task-specific fields here (deserialized from circuit config JSON by Gson)
+  // private String myField;
+
+  public {{Name}}Task(String name) {
+    super(name, TaskType.{{TASK_TYPE}});
+  }
+
+  // public String getMyField() { return myField; }
+  // public void setMyField(String myField) { this.myField = myField; }
+}
